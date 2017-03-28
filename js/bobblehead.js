@@ -148,15 +148,7 @@ var BobbleHead = {
 		}
 	},
 	ExternalConnector: class{
-		doRequest(request,onSuccess,onFailure){}
-	},
-	RestServerConnector = class{ //implements ExternalConnector
-		static getInstance(){
-			if(!BobbleHead.RestServerConnector.instance)
-				BobbleHead.RestServerConnector.instance = new BobbleHead.RestServerConnector();
-			return BobbleHead.RestServerConnector.instance;
-		}
-		doRequest(request,onSuccess = BobbleHead.defaultCallback,onFailure = BobbleHead.defaultCallback){
+		static doRequest(request,onSuccess = BobbleHead.defaultCallback,onFailure = BobbleHead.defaultCallback){
 			var xhttp = new XMLHttpRequest();
 			xhttp.open(request.getMethod(), request.getUri(), true);
 			for(var header of request.getHeaders())
@@ -198,6 +190,99 @@ var BobbleHead = {
 			xhttp.send(request.getData());
 		}
 	},
+	RestServerConnector = class{
+		static init(){
+			//TODO:
+		}
+		static addServer(wadl){
+			//TODO:
+		}
+		static getInstance(){
+			if(!BobbleHead.RestServerConnector.instance)
+				BobbleHead.RestServerConnector.instance = new BobbleHead.RestServerConnector();
+			return BobbleHead.RestServerConnector.instance;
+		}
+		request(resourceRequest,onSuccess = BobbleHead.defaultCallback,onFailure = BobbleHead.defaultCallback){
+			//TODO:
+		}
+	},
+	Cacher: class{
+		static init(){
+			//TODO:
+		}
+		static cache(requestCode, response){
+			//TODO:
+		}
+		static getCached(requestCode){
+			//TODO:
+		}
+	},
+	PageBuilder: {
+		buildPage: function(virtualID,data){
+			//TODO:
+		},
+		pageBack: function(virtualID){
+			//TODO:
+		}
+	},
+	VirtualPageFactory: {
+		getPage: function(virtualID, data){
+			//TODO:
+		}
+	},
+	Module: class{
+		constructor(name,configuration = null, components = null){
+			this.name = name;
+			this.configuration = configuration;
+			this.components = components;
+		}
+		render(){
+			//TODO:
+		}
+	},
+	Component: class{
+		constructor(name,configuration = null){
+			this.name = name;
+			this.configuration = configuration;
+		}
+		render(){
+			//TODO:
+		}
+	},
+	VirtualPage: class{
+		constructor(lock,page,configuration = null, rolesAllowed = null, modules = null){
+			this.lock = lock;
+			this.page = page;
+			this.configuration = configuration;
+			this.modules = modules;
+			this.rolesAllowed = rolesAllowed;
+		}
+		build(data){
+			//TODO:
+		}
+		cancelBuilding(){
+			
+		}
+		registerScript(script){
+			
+		}
+		registerStyle(style){
+			
+		}
+		currentUserIsAdmin(){
+			
+		}
+		currentUserHasRole(role){
+			
+		}
+	},
+	Database: class{
+		static getInstance(){
+			if(BobbleHead.Database.instance == null)
+				BobbleHead.Database.instance = new PouchDB('bobblehead');
+			return BobbleHead.Database.instance;
+		}
+	}
 	defaultCallback: function(){
 		console.log(arguments);
 	},
@@ -207,6 +292,94 @@ var BobbleHead = {
 			this.message = message;
 		}
 	},
+	Rest: {
+		ResourceRequest: class{
+			constructor(resource, crud, data){
+				this.resource = resource;
+				this.crud = crud;
+				this.data = data || [];
+			}
+			getResource(){
+				return this.resource;
+			}
+			getCRUD(){
+				return this.crud;
+			}
+			*getData(){
+				for(var x in this.data){
+					var v = this.data[x];
+					yield {'name':x,'value':v};
+				}
+			}
+		},
+		Server: class{
+			constructor(id,resources = null, resource_types = null, params = null){
+				this.id = id;
+				this.resources = resources;
+				this.resource_types = resource_types;
+				this.params = params;
+			}
+		},
+		Resource: class{
+			constructor(id = null, path = null, type = null, queryType = null, parent = null, resource_type){
+				this.id = id;
+				this.path = path;
+				this.type = type;
+				this.queryType = queryType;
+				this.parent = parent;
+				this.resource_type = resource_type;
+			}
+		},
+		ResourceType: class{
+			constructor(id = null, params = null, methods = null){
+				this.id = id;
+				this.params = params;
+				this.methods = methods;
+			}
+		},
+		Param: class{
+			constructor(name, style, id = null, default = null, path = null, required = null, repeating = null, fixed = null, options = null){
+				this.id = id;
+				this.name = name;
+				this.style = style;
+				this.default = default;
+				this.path = path;
+				this.required = required;
+				this.repeating = repeating;
+				this.fixed = fixed;
+				this.options = options;
+			}
+		},
+		Option: class{
+			constructor(value, mediaType){
+				this.value = value;
+				this.mediaType = mediaType;
+			}
+		},
+		Method: class{
+			constructor(name, id = null, requests = null, responds = null){
+				this.name = name;
+				this.id = id;
+				this.requests = null;
+				this.responds = responds;
+			}
+		},
+		CommunicationMethod: class{
+			constructor(params, representations){
+				this.params = params;
+				this.representations = representations;
+			}
+		},
+		Representation: class{
+			constructor(id, mediaType, element, profile, params = null){
+				this.id = id;
+				this.mediaType = mediaType;
+				this.element = element;
+				this.profile = profile;
+				this.params = params;
+			}
+		}
+	}
 }
 //static class attribute
 BobbleHead.RolePool.roles = {};
@@ -214,6 +387,10 @@ BobbleHead.StylePool.styles = {};
 BobbleHead.InternalConnector.instance = null;
 BobbleHead.AccessController.currentSession = null;
 BobbleHead.RestServerConnector.instance = null;
+BobbleHead.RestServerConnector.serverList = [];
+BobbleHead.Cacher.cacheHeap = null;
+BobbleHead.Cacher.cacheMap = null;
+BobbleHead.Database.instance = null;
 //Library Sub-class
 BobbleHead.CommonUser = class extends BobbleHead.User{
 	isAdmin(){
@@ -228,3 +405,5 @@ BobbleHead.Administrator = class extends BobbleHead.User{
 BobbleHead.ComponentConfiguration = class extends BobbleHead.GenericConfiguration{};
 BobbleHead.ModuleConfiguration = class extends BobbleHead.GenericConfiguration{};
 BobbleHead.VirtualPageConfiguration = class extends BobbleHead.GenericConfiguration{};
+BobbleHead.Rest.Request = class extends BobbleHead.Rest.CommunicationMethod{};
+BobbleHead.Rest.Response = class extends BobbleHead.Rest.CommunicationMethod{};
