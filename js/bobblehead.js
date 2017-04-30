@@ -1,11 +1,22 @@
 var BobbleHead = {
+	UserPool: class{
+		static getUser(id){
+			return BobbleHead.UserPool.users[username];
+		}
+		static addUser(user){
+			try{
+				BobbleHead.UserPool.users[user.username] = user;
+			}catch(e){
+				BobbleHead.log(e);
+			}
+		}
+	},
 	User: class{
 		constructor(username,password,roles){
 			this.username = username;
 			this.password = password;
 			this.roles = roles
 		}
-		//isAdmin(){}
 		getRoles(){
 			return this.roles;
 		}
@@ -29,8 +40,9 @@ var BobbleHead = {
 		}
 	},
 	Session: class{
-		constructor(token){
+		constructor(token, user = null){
 			this.token = token;
+			this.user = user;
 		}
 		getToken(){
 			return token;
@@ -96,7 +108,7 @@ var BobbleHead = {
 		constructor(name,pagePaths){
 			this.name = name;
 			this.pagePaths = pagePaths;
-		},
+		}
 		getRealPath(pageName){
 			return this.pagePaths[pageName] || this.pagePaths['404'] || null;
 		}
@@ -144,7 +156,23 @@ var BobbleHead = {
 			return BobbleHead.AccessController.currentSession;
 		}
 		static init(){
-			//TODO: extract session from DB
+			var db = BobbleHead.Database.getInstance();
+			db.get('session').then(function(session) {
+				if(session.token && session.user){
+					db.get(session.user).then(function(session,user) {
+						if(user.username){
+							var sessionUser = BobbleHead.UserPool.getUser(user.username);
+							BobbleHead.AccessController.currentSession = new BobbleHead.Session(session.token,sessionUser);
+						}else
+							BobbleHead.log('AccessController',1,'Invalid user');
+					}.bind(this,session)).catch(function(err) {
+						BobbleHead.log(err);
+					});
+				}else
+					BobbleHead.log('AccessController',1,'Invalid session');
+			}).catch(function(err) {
+				BobbleHead.log(err);
+			});
 		}
 	},
 	ExternalConnector: class{
@@ -190,7 +218,7 @@ var BobbleHead = {
 			xhttp.send(request.getData());
 		}
 	},
-	RestServerConnector = class{
+	RestServerConnector: class{
 		static init(){
 			//TODO:
 		}
@@ -208,13 +236,43 @@ var BobbleHead = {
 	},
 	Cacher: class{
 		static init(){
-			//TODO:
+			var db = BobbleHead.Database.getInstance();
+			db.get('cache').then(function(cache) {
+				if(cache.map && cache.heap){
+					var hold = cache.heap.getFirst();
+					if(hold!=null){
+						var red = hold.getKey()-1;
+						if(red>0)
+							for(var node of cache.heap.getNodes())
+								node.reduceKey(red);
+					}
+				}else{
+					BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
+					BobbleHead.Cacher.cacheMap = {};
+					BobbleHead.log('Cacher',0,'No cache object');
+				}
+			}).catch(function(err) {
+				BobbleHead.log(err);
+			});
 		}
 		static cache(requestCode, response){
-			//TODO:
+			if(BobbleHead.Cacher.cacheMap[requestCode]){
+				var hold = BobbleHead.Cacher.cacheHeap.findByValue(requestCode);
+				hold.incKey();
+				BobbleHead.Cacher.cacheHeap.reheap();
+			}else{
+				if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxNodes)
+					for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
+						var hold = BobbleHead.Cacher.cacheHeap.pop();
+						delete BobbleHead.Cacher.cacheMap[hold.getValue()];
+					}
+				var node = new BobbleHead.Util.HeapNode(1,requestCode);
+				BobbleHead.Cacher.cacheHeap.addNode(node);
+				BobbleHead.Cacher.cacheMap[requestCode] = response;
+			}
 		}
 		static getCached(requestCode){
-			//TODO:
+			return BobbleHead.Cacher.cacheMap[requestCode];
 		}
 	},
 	PageBuilder: {
@@ -278,13 +336,54 @@ var BobbleHead = {
 	},
 	Database: class{
 		static getInstance(){
-			if(BobbleHead.Database.instance == null)
-				BobbleHead.Database.instance = new PouchDB('bobblehead');
+			if(BobbleHead.Database.instance == null){
+				BobbleHead.Database.instance = new PouchDB('bobblehead', {adapter: 'websql'});
+				if (!BobbleHead.Database.instance.adapter)
+					BobbleHead.Database.instance = new PouchDB('bobblehead');
+			}
 			return BobbleHead.Database.instance;
 		}
-	}
+	},
+	AppController: class{
+		init(xmlConfiguration){
+			BobbleHead.XMLParser.parseUrl(xmlConfiguration,this.processConf.bind(this));
+		}
+		processConf(conf){
+			//TODO:
+		}
+	},
+	XMLParser: class{
+		static getDOMParser(){
+			if(BobbleHead.XMLParser.domParser == null)
+				BobbleHead.XMLParser.domParser = new DOMParser();
+			return BobbleHead.XMLParser.domParser;
+		}
+		static parseUrl(url,callback){
+			var xhttp = new XMLHttpRequest();
+			xhttp.open('get', url, true);
+			xhttp.responseType = 'text';
+			xhttp.onreadystatechange = function(callback){
+				if(xhttp.readyState === XMLHttpRequest.DONE){
+					callback(this.parseString(xhttp.response));
+				}
+			}.bind(this,callback);
+			xhttp.send();
+		}
+		static parseString(str){
+			var xmlDoc = null;
+			if (window.DOMParser){
+				var parser = BobbleHead.XMLParser.getDOMParser();
+				xmlDoc = parser.parseFromString(txt, "text/xml");
+			}else{
+				xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+				xmlDoc.async = false;
+				xmlDoc.loadXML(txt);
+			}
+			return this.parseXML(xmlDoc);
+		}
+	},
 	defaultCallback: function(){
-		console.log(arguments);
+		BobbleHead.log(arguments);
 	},
 	pageNotFound: class{
 		constructor(message){
@@ -292,6 +391,16 @@ var BobbleHead = {
 			this.message = message;
 		}
 	},
+	log: function(data,level = null,description = null){
+		if(level && description){
+			if(level>1)
+				console.err('['+data+'] '+description);
+			else
+				console.log('['+data+'] '+description)
+		}else
+			console.log(data);
+	},
+	isRemotePattern: /^http[s]?:\/\//i,
 	Rest: {
 		ResourceRequest: class{
 			constructor(resource, crud, data){
@@ -338,11 +447,11 @@ var BobbleHead = {
 			}
 		},
 		Param: class{
-			constructor(name, style, id = null, default = null, path = null, required = null, repeating = null, fixed = null, options = null){
+			constructor(name, style, id = null, _default = null, path = null, required = null, repeating = null, fixed = null, options = null){
 				this.id = id;
 				this.name = name;
 				this.style = style;
-				this.default = default;
+				this._default = _default;
 				this.path = path;
 				this.required = required;
 				this.repeating = repeating;
@@ -379,9 +488,102 @@ var BobbleHead = {
 				this.params = params;
 			}
 		}
+	},
+	Util: {
+		Heap: class{
+			constructor(unorderedArray = null){
+				if(unorderedArray)
+					this.build(unorderedArray);
+				else
+					this.array = [];
+			}
+			sx(i){
+				return 2*i;
+			}
+			dx(i){
+				return (2*i)+1;
+			}
+			father(i){
+				return parseInt(i/2);
+			}
+			heapify(i){
+				var l = this.sx(i);
+				var r = this.dx(i);
+				var m = i;
+				if(l<this.array.length && this.array[l].getKey() > this.array[i].getKey())
+					m = l;
+				if(r<this.array.length && this.array[r].getKey() > this.array[m].getKey())
+					m = r;
+				if(m != i){
+					var h = this.array[i];
+					this.array[i] = this.array[m];
+					this.array[m] = h;
+					this.heapify(m);
+				}
+			}
+			build(unorderedArray){
+				this.array = unorderedArray;
+				this.reheap();
+			}
+			reheap(){
+				for(var i = parseInt(this.array.length/2); i>=0; i--)
+					this.heapify(i);
+			}
+			addNode(node){
+				this.array.push(node);
+				this.reheap();
+			}
+			pop(){
+				if(this.array.length==0) return null;
+				var r = this.array[0];
+				this.array[0] = this.array[this.array.length - 1];
+				this.array.length = this.array.length - 1;
+				this.heapify(0);
+				return r;
+			}
+			getFirst(){
+				if(this.array.length==0) return null;
+				return this.array[0];
+			}
+			findByValue(val){
+				for(var i=0, l=this.array.length; i<l; i++)
+					if(this.array[i].getValue()==val)
+						return this.array[i];
+				return null;
+			}
+			*getNodes(){
+				for(var i=0, l=this.array.length; i<l; i++)
+					yield this.array[i];
+			}
+		},
+		HeapNode: class{
+			constructor(key,value){
+				this.key = key;
+				this.value = value;
+			}
+			getKey(){
+				return this.key;
+			}
+			incKey(){
+				this.key++;
+			}
+			decKey(){
+				this.key--;
+			}
+			increaseKey(i){
+				this.key += i;
+			}
+			reduceKey(i){
+				this.key -= i;
+			}
+			getValue(){
+				return this.value;
+			}
+		}
 	}
 }
 //static class attribute
+BobbleHead.UserPool.users = {};
 BobbleHead.RolePool.roles = {};
 BobbleHead.StylePool.styles = {};
 BobbleHead.InternalConnector.instance = null;
@@ -390,20 +592,30 @@ BobbleHead.RestServerConnector.instance = null;
 BobbleHead.RestServerConnector.serverList = [];
 BobbleHead.Cacher.cacheHeap = null;
 BobbleHead.Cacher.cacheMap = null;
+BobbleHead.Cacher.maxNodes = 1000;
+BobbleHead.Cacher.nodesPartNum = 3;
 BobbleHead.Database.instance = null;
+BobbleHead.XMLParser.domParser = null;
 //Library Sub-class
-BobbleHead.CommonUser = class extends BobbleHead.User{
-	isAdmin(){
-		return false;
-	}
-};
-BobbleHead.Administrator = class extends BobbleHead.User{
-	isAdmin(){
-		return true;
-	}
-};
 BobbleHead.ComponentConfiguration = class extends BobbleHead.GenericConfiguration{};
 BobbleHead.ModuleConfiguration = class extends BobbleHead.GenericConfiguration{};
 BobbleHead.VirtualPageConfiguration = class extends BobbleHead.GenericConfiguration{};
 BobbleHead.Rest.Request = class extends BobbleHead.Rest.CommunicationMethod{};
 BobbleHead.Rest.Response = class extends BobbleHead.Rest.CommunicationMethod{};
+BobbleHead.Util.ReverseHeap = class extends BobbleHead.Util.Heap {
+	heapify(i){
+		var l = this.sx(i);
+		var r = this.dx(i);
+		var m = i;
+		if(l<this.array.length && this.array[l].getKey() < this.array[i].getKey())
+			m = l;
+		if(r<this.array.length && this.array[r].getKey() < this.array[m].getKey())
+			m = r;
+		if(m != i){
+			var h = this.array[i];
+			this.array[i] = this.array[m];
+			this.array[m] = h;
+			this.heapify(m);
+		}
+	}
+}
