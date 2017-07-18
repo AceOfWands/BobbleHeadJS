@@ -1,6 +1,6 @@
 var BobbleHead = {
 	UserPool: class{
-		static getUser(id){
+		static getUser(username){
 			return BobbleHead.UserPool.users[username];
 		}
 		static addUser(user){
@@ -40,12 +40,12 @@ var BobbleHead = {
 		}
 	},
 	Session: class{
-		constructor(token, user = null){
-			this.token = token;
-			this.user = user;
+		constructor(info = null){ //, user = null
+			this.info = info;
+			//this.user = user;
 		}
-		getToken(){
-			return token;
+		getInfo(){
+			return this.info;
 		}
 	},
 	Response: class{
@@ -56,11 +56,16 @@ var BobbleHead = {
 		}
 	},
 	Request: class{
-		constructor(method,uri,data,headers = []){
+		constructor(method,uri,data,headers = {}){
 			this.method = method;
 			this.uri = uri;
 			this.data = (data instanceof FormData) ? data : null;
 			this.headers = headers;			
+		}
+		setHeader(a,b = null){
+			if(this.headers==null)
+				this.headers = {};
+			this.headers[a] = b;
 		}
 		setData(a,b = null){
 			if(a instanceof FormData)
@@ -153,12 +158,22 @@ var BobbleHead = {
 			//TODO: Logout by ExternalConnector
 		}
 		static getCurrentSession(){
-			return BobbleHead.AccessController.currentSession;
+			return BobbleHead.AccessController.currentAuthMethod.getCurrentSession();
 		}
-		static init(){
+		static init(authType = 'basic'){
+			var selectedAuth = null;
+			switch(authType){
+				case 'basic':
+					selectedAuth = BobbleHead.AuthenticationMethods.BasicAuthentication();
+					break;
+				default:
+					selectedAuth = BobbleHead.AuthenticationMethods.BasicAuthentication();
+					break;
+			}
+			BobbleHead.AccessController.currentAuthMethod = selectedAuth;
 			var db = BobbleHead.Database.getInstance();
 			db.get('session').then(function(session) {
-				if(session.token && session.user){
+				/*if(session.token && session.user){
 					db.get(session.user).then(function(session,user) {
 						if(user.username){
 							var sessionUser = BobbleHead.UserPool.getUser(user.username);
@@ -169,12 +184,34 @@ var BobbleHead = {
 						BobbleHead.log(err);
 					});
 				}else
-					BobbleHead.log('AccessController',1,'Invalid session');
+					BobbleHead.log('AccessController',1,'Invalid session');*/
+				BobbleHead.AccessController.currentAuthMethod.replaceCurrentSession(session);
 			}).catch(function(err) {
 				BobbleHead.log(err);
 			});
 		}
 	},
+	AuthenticationMethod: class{
+		constructor(){
+			this.session = null;
+		}
+		prepareLoginRequest(loginInfoMap = null){
+			return null;
+		}
+		prepareLogoutRequest(){
+			return null;
+		}
+		parseLoginResponse(response = null){}
+		parseLogoutResponse(response = null){}
+		authRequest(request = null){}
+		getCurrentSession(){
+			return this.session;
+		}
+		replaceCurrentSession(session){
+			this.session = session;
+		}
+	},
+	AuthenticationMethods: {},
 	ExternalConnector: class{
 		static doRequest(request,onSuccess = BobbleHead.defaultCallback,onFailure = BobbleHead.defaultCallback){
 			var xhttp = new XMLHttpRequest();
@@ -587,7 +624,7 @@ BobbleHead.UserPool.users = {};
 BobbleHead.RolePool.roles = {};
 BobbleHead.StylePool.styles = {};
 BobbleHead.InternalConnector.instance = null;
-BobbleHead.AccessController.currentSession = null;
+BobbleHead.AccessController.currentAuthMethod = null;
 BobbleHead.RestServerConnector.instance = null;
 BobbleHead.RestServerConnector.serverList = [];
 BobbleHead.Cacher.cacheHeap = null;
@@ -616,6 +653,25 @@ BobbleHead.Util.ReverseHeap = class extends BobbleHead.Util.Heap {
 			this.array[i] = this.array[m];
 			this.array[m] = h;
 			this.heapify(m);
+		}
+	}
+};
+BobbleHead.AuthenticationMethods.BasicAuthentication: class extends BobbleHead.AuthenticationMethod{
+	prepareLoginRequest(loginInfoMap = null){
+		if(loginInfoMap.name && loginInfoMap.password){
+			this.session = new BobbleHead.Session(loginInfoMap);
+		}else
+			BobbleHead.log('BasicAuthentication',1,'Invalid user');
+		return null;
+	}
+	prepareLogoutRequest(){
+		this.replaceCurrentSession(null);
+		return null;
+	}
+	authRequest(request = null){
+		if(request!=null){
+			var userInfo = this.session.getInfo();
+			request.setHeader('Authorization','Basic ' + btoa(userInfo.name':'+userInfo.password));
 		}
 	}
 }
