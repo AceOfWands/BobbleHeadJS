@@ -40,9 +40,8 @@ var BobbleHead = {
 		}
 	},
 	Session: class{
-		constructor(info = null){ //, user = null
+		constructor(info = null){
 			this.info = info;
-			//this.user = user;
 		}
 		getInfo(){
 			return this.info;
@@ -77,13 +76,13 @@ var BobbleHead = {
 			}
 		}
 		getData(){
-			//TODO:
+			return this.data;
 		}
 		getMethod(){
 			return this.method;
 		}
 		getUri(){
-			//TODO:
+			return this.uri;
 		}
 		*getHeaders(){
 			for(var x in this.headers){
@@ -422,9 +421,9 @@ var BobbleHead = {
 	defaultCallback: function(){
 		BobbleHead.log(arguments);
 	},
-	pageNotFound: class{
+	FrameworkException: class{
 		constructor(message){
-			this.name = 'pageNotFound';
+			this.name = 'FrameworkException';
 			this.message = message;
 		}
 	},
@@ -459,21 +458,31 @@ var BobbleHead = {
 			}
 		},
 		Server: class{
-			constructor(id,resources = null, resource_types = null, params = null){
+			constructor(id = null,resources = null, resource_types = null, params = null, representations = null){
 				this.id = id;
 				this.resources = resources;
 				this.resource_types = resource_types;
 				this.params = params;
+				this.representations = representations;
+			}
+		},
+		Resources: class{
+			constructor(base = null, elements = null){
+				this.base = base;
+				this.elements = elements;
 			}
 		},
 		Resource: class{
-			constructor(id = null, path = null, type = null, queryType = null, parent = null, resource_type){
+			constructor(id = null, path = null, type = null, queryType = null, resource_type = null, resources = null,
+				methods = null, params = null){
 				this.id = id;
 				this.path = path;
 				this.type = type;
 				this.queryType = queryType;
-				this.parent = parent;
 				this.resource_type = resource_type;
+				this.resources = resources;
+				this.methods = methods;
+				this.params = params;
 			}
 		},
 		ResourceType: class{
@@ -484,16 +493,19 @@ var BobbleHead = {
 			}
 		},
 		Param: class{
-			constructor(name, style, id = null, _default = null, path = null, required = null, repeating = null, fixed = null, options = null){
+			constructor(name, style, id = null, type = null, _default = null, path = null, required = null, repeating = null, fixed = null,
+				options = null, links = null){
 				this.id = id;
 				this.name = name;
 				this.style = style;
+				this.type = type;
 				this._default = _default;
 				this.path = path;
 				this.required = required;
 				this.repeating = repeating;
 				this.fixed = fixed;
 				this.options = options;
+				this.links = links;
 			}
 		},
 		Option: class{
@@ -502,11 +514,18 @@ var BobbleHead = {
 				this.mediaType = mediaType;
 			}
 		},
+		Link: class{
+			constructor(resource_type = null, rel = null, rev = null){
+				this.resource_type = resource_type;
+				this.rel = rel;
+				this.rev = rev;
+			}
+		},
 		Method: class{
 			constructor(name, id = null, requests = null, responds = null){
 				this.name = name;
 				this.id = id;
-				this.requests = null;
+				this.requests = requests;
 				this.responds = responds;
 			}
 		},
@@ -523,6 +542,150 @@ var BobbleHead = {
 				this.element = element;
 				this.profile = profile;
 				this.params = params;
+			}
+		},
+		CrossReference: class{
+			constructor(reference){
+				var dashPos = reference.indexOf('#');
+				if(dashPos<1) //Inter-document references not supported
+					throw new BobbleHead.NotSupportedException('Inter-document references not supported');
+				this.reference = reference.substr(dashPos);
+			}
+		},
+		Wadl: class{
+			constructor(id,xmldoc){
+				var application = xmldoc.getElementsByTagName("application")[0];
+				this.server = new BobbleHead.Rest.Server();
+				this.server.resources = this.findResources(application);
+				this.server.resource_types = this.findResource_Types(application);
+				this.server.params = this.findParams(application);
+				this.server.methods = this.findMethods(application);
+				this.server.representations = this.findRepresentations(application);
+				//TODO: replace resource types in resource string list
+				// replace element in Representation with right grammar
+				// replace cross reference (also in link)
+			}
+			findResources(root){
+				var ress = root.getElementsByTagName("resources");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var temp = new BobbleHead.Rest.Resources(ress[i].getAttribute("base"));
+					temp.elements = this.findResource(ress[i]);
+					_ress.push(temp);
+				}
+				return _ress;
+			}
+			findResource(root){
+				var ress = root.getElementsByTagName("resource");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var type = ress[i].getAttribute("type") ? ress[i].getAttribute("type").split(' ') : [];
+					var temp = new BobbleHead.Rest.Resource(ress[i].getAttribute("id"), ress[i].getAttribute("path"),
+						type, ress[i].getAttribute("queryType") ? ress[i].getAttribute("queryType") : 'application/x-www-form-urlencoded',
+						null, this.findResource(ress[i]), this.findMethods(ress[i]), this.findParams(ress[i]));
+					_ress.push(temp);
+				}
+				return _ress;
+			}
+			findResource_Types(root){
+				var ress = root.getElementsByTagName("resource_type");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var temp = new BobbleHead.Rest.ResourceType(ress[i].getAttribute("id"), this.findParams(ress[i]),
+						this.findMethods(ress[i]));
+					_ress.push(temp);
+				}
+				return _ress;
+			}
+			findParams(root){
+				var ress = root.getElementsByTagName("param");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var temp = null;
+					if(ress[i].getAttribute("href")){
+						temp = new BobbleHead.Rest.ParameterReference(ress[i].getAttribute("href"));
+					}else{
+						temp = new BobbleHead.Rest.Param(ress[i].getAttribute("name"), ress[i].getAttribute("style"), ress[i].getAttribute("id"),
+							ress[i].getAttribute("type"), ress[i].getAttribute("default"), ress[i].getAttribute("path"),
+							ress[i].getAttribute("required") === 'true' ? true : false,
+							ress[i].getAttribute("repeating") === 'true' ? true : false, ress[i].getAttribute("fixed"), this.findOptions(ress[i]),
+							this.findLinks(ress[i]));
+						_ress.push(temp);
+					}
+				}
+				return _ress;
+			}
+			findOptions(){
+				var ress = root.getElementsByTagName("option");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var temp = new BobbleHead.Rest.Option(ress[i].getAttribute("value"),ress[i].getAttribute("mediaType"));
+					_ress.push(temp);
+				}
+				return _ress;
+			}
+			findLinks(){
+				var ress = root.getElementsByTagName("link");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var rt = null;
+					if(ress[i].getAttribute("resource_type"))
+						rt = new BobbleHead.Rest.ResourceTypeReference(ress[i].getAttribute("resource_type"));
+					var temp = new BobbleHead.Rest.Option(rt, ress[i].getAttribute("rel"), ress[i].getAttribute("rev"));
+					_ress.push(temp);
+				}
+				return _ress;
+			}
+			findMethods(root){
+				var ress = root.getElementsByTagName("method");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var temp = null;
+					if(ress[i].getAttribute("href")){
+						temp = new BobbleHead.Rest.MethodReference(ress[i].getAttribute("href"));
+					}else{
+						temp = new BobbleHead.Rest.Method(ress[i].getAttribute("name"), ress[i].getAttribute("id")
+							, this.findRequests(ress[i]), this.findResponses(ress[i]));
+						_ress.push(temp);
+					}
+				}
+				return _ress;
+			}
+			findRequests(root){
+				var ress = root.getElementsByTagName("request");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var temp = new BobbleHead.Rest.Request(this.findParams(ress[i]), this.findRepresentations(ress[i]));
+					_ress.push(temp);
+				}
+				return _ress;
+			}
+			findResponses(root){
+				var ress = root.getElementsByTagName("response");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var temp = new BobbleHead.Rest.Response(this.findParams(ress[i]), this.findRepresentations(ress[i]));
+					_ress.push(temp);
+				}
+				return _ress;
+			}
+			findRepresentations(root){
+				var ress = root.getElementsByTagName("representation");
+				var _ress = [];
+				for(var i=0; i<ress.length; i++){
+					var temp = null;
+					if(ress[i].getAttribute("href")){
+						temp = new BobbleHead.Rest.RepresentationReference(ress[i].getAttribute("href"));
+					}else{
+						temp = new BobbleHead.Rest.Representation(ress[i].getAttribute("id"), ress[i].getAttribute("mediaType"),
+							ress[i].getAttribute("element"), ress[i].getAttribute("profile"), this.findParams(ress[i]));
+						_ress.push(temp);
+					}
+				}
+				return _ress;
+			}
+			getServer(){
+				return this.server;
 			}
 		}
 	},
@@ -675,3 +838,10 @@ BobbleHead.AuthenticationMethods.BasicAuthentication: class extends BobbleHead.A
 		}
 	}
 }
+BobbleHead.Rest.RepresentationReference = class extends BobbleHead.Rest.CrossReference{};
+BobbleHead.Rest.MethodReference = class extends BobbleHead.Rest.CrossReference{};
+BobbleHead.Rest.ParameterReference = class extends BobbleHead.Rest.CrossReference{};
+BobbleHead.Rest.ResourceTypeReference = class extends BobbleHead.Rest.CrossReference{};
+//Exception
+BobbleHead.PageNotFoundException = class extends BobbleHead.FrameworkException{};
+BobbleHead.NotSupportedException = class extends BobbleHead.FrameworkException{};
