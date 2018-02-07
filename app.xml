@@ -1,0 +1,23 @@
+<configuration>
+	<version>0.0.1</version>
+	<container>app-content</container>
+	<pages path="./pages/">
+		<index vid="1">
+			<data>
+				<test>Success</test>
+			</data>
+		</index>
+		<page vid="1" noback="1" modulesAllowed="" path="test.html">
+			<configuration>
+				<test>123</test>
+			</configuration>
+		</page>
+	</pages>
+	<modules path="./modules/">
+		<module path="restwadl/main.js" enabled="true">
+			<configuration>
+			
+			</configuration>
+		</module>
+	</modules>
+</configuration>
