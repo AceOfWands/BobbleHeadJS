@@ -6,20 +6,20 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
 
 ## Project Status
 - ### CMS Core
-      - [x] Access Menaging
-      - [x] Page Loding
-      - [x] Database (delegated to PouchDB)
-      - [ ] Cacher (to resolve request uid problem)
-      - [x] Router
-      - [x] AppController (application configuration reader)
-      - [x] Internal / External Communicator
-      - [ ] Event Trigging
+  - [x] Access Menaging
+  - [x] Page Loding
+  - [x] Database (delegated to PouchDB)
+  - [ ] Cacher (to resolve request uid problem)
+  - [x] Router
+  - [x] AppController (application configuration reader)
+  - [x] Internal / External Communicator
+  - [ ] Event Trigging
 - ### Rest - WADL Communicator
-      - [ ] WADL Reader (almost completed)
-      - [ ] Models generator
+  - [ ] WADL Reader (almost completed)
+  - [ ] Models generator
 - ### XHTML Page Composer
-      - [ ] XPAG Reader
-      - [ ] XPAG Render
+  - [ ] XPAG Reader
+  - [ ] XPAG Render
 
 ## Library Used
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
