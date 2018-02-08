@@ -93,8 +93,12 @@ var bobblehead = (function(a){
 					yield {'name':x,'value':v};
 				}
 			}
-			hashCode(){
-				return md5(this.method)+md5(this.uri)+md5(JSON.stringify(this.data));
+			equal(x){
+				if(!(x instanceof BobbleHead.Request)) return false;
+				if(this.method != x.getMethod()) return false;
+				if(this.uri != x.getUri()) return false;
+				if(JSON.stringify(this.data) != JSON.stringify(x.getData())) return false;
+				return true;
 			}
 		},
 		GenericConfiguration: class{
@@ -329,7 +333,7 @@ var bobblehead = (function(a){
 						if(xhttp.status !== 200) {
 							var statusType = Math.floor(xhttp.status/100);
 							if(statusType!=4)
-								response = BobbleHead.Cacher.getCached(request.hashCode());
+								response = BobbleHead.Cacher.getCached(request);
 							if(!response){
 								res.code = -10;
 								res.content = {'error':'Connection Error'};
@@ -345,7 +349,7 @@ var bobblehead = (function(a){
 							res.content = {'error':'No data response'};
 						}
 						if(xhttp.status === 200){
-							BobbleHead.Cacher.cache(request.hashCode(),response);
+							BobbleHead.Cacher.cache(request,response);
 						}
 						if(res.code==0)
 							onSuccess(res);
@@ -388,27 +392,37 @@ var bobblehead = (function(a){
 						BobbleHead.log('Cacher',0,'No cache object');
 					}
 				}).catch(function(err) {
-					BobbleHead.log(err);
+					BobbleHead.log('Saved cache not found', 1, err);
 				});
 			}
-			static cache(requestCode, response){
-				if(BobbleHead.Cacher.cacheMap[requestCode]){
-					var hold = BobbleHead.Cacher.cacheHeap.findByValue(requestCode);
+			static cache(request, response){
+				if(BobbleHead.Cacher.cacheMap[request.method] &&
+					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] &&
+					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]){
+					var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
 					hold.incKey();
 					BobbleHead.Cacher.cacheHeap.reheap();
 				}else{
 					if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxNodes)
 						for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
 							var hold = BobbleHead.Cacher.cacheHeap.pop();
-							delete BobbleHead.Cacher.cacheMap[hold.getValue()];
+							var reqToDel = hold.getValue();
+							delete BobbleHead.Cacher.cacheMap[reqToDel.method][btoa(reqToDel.uri)][md5(JSON.stringify(reqToDel.data))];
 						}
-					var node = new BobbleHead.Util.HeapNode(1,requestCode);
+					var node = new BobbleHead.Util.HeapNode(1,request);
 					BobbleHead.Cacher.cacheHeap.addNode(node);
-					BobbleHead.Cacher.cacheMap[requestCode] = response;
+					if(!BobbleHead.Cacher.cacheMap[request.method])
+						BobbleHead.Cacher.cacheMap[request.method] = {};
+					if(!BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
+						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] = {};
+					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
 				}
 			}
-			static getCached(requestCode){
-				return BobbleHead.Cacher.cacheMap[requestCode];
+			static getCached(request){
+				if(BobbleHead.Cacher.cacheMap[request.method] &&
+					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
+					return BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))];
+				return null;
 			}
 		},
 		PageBuilder: class {
@@ -560,6 +574,7 @@ var bobblehead = (function(a){
 			processConf(conf){
 				if(!conf) return;
 				try{
+					BobbleHead.Cacher.init();
 					var temp_configuration = conf.getElementsByTagName('configuration')[0];
 					var hold_conf = {};
 					hold_conf.container = (temp_configuration.getElementsByTagName('container')[0]).textContent;
@@ -792,7 +807,7 @@ var bobblehead = (function(a){
 				}
 				findByValue(val){
 					for(var i=0, l=this.array.length; i<l; i++)
-						if(this.array[i].getValue()==val)
+						if(this.array[i].getValue().equal(val))
 							return this.array[i];
 					return null;
 				}

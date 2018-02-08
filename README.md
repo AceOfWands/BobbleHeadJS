@@ -9,7 +9,7 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
   - [x] Access Menaging
   - [x] Page Loding
   - [x] Database (delegated to PouchDB)
-  - [ ] Cacher (to resolve request uid problem)
+  - [ ] Cacher (to do white and black lists)
   - [x] Router
   - [x] AppController (application configuration reader)
   - [x] Internal / External Communicator
