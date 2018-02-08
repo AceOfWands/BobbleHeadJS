@@ -24,5 +24,6 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
 ## Library Used
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
 - mustache.js [homepage](http://mustache.github.io/)
+- md5-jkmyers [github](https://github.com/AndreasPizsa/md5-jkmyers)
 
 ## Basic Usage
