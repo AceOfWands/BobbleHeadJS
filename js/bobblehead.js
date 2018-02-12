@@ -230,13 +230,16 @@ var bobblehead = (function(a){
 							var module = BobbleHead.ModulePool.getModule(moduleName);
 							var subSubSubUri = subSubUri.substring(n);
 							n = subSubSubUri.indexOf('/');
-							var methodName = null;
+							var controllerName = null;
 							if(n>=0)
-								methodName = subSubSubUri.substring(0, n);
+								controllerName = subSubSubUri.substring(0, n);
 							else
-								methodName = subSubSubUri;
-							module[methodName](request.data);
-							onSuccess();
+								controllerName = subSubSubUri;
+							var controllr = module.getController(controllerName);
+							if(controllr!=null)
+								controllr(request.data, onSuccess, onFailure);
+							else
+								onFailure(new BobbleHead.ControllerNotFoundException());
 						}
 					}catch(e){
 						onFailure(e);
@@ -487,7 +490,9 @@ var bobblehead = (function(a){
 						}
 						for(var mod of BobbleHead.ModulePool.getModules()){
 							if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
-								mod.load(context, document.getElementById(this.container));
+								for(var e of this.querySelectorAll('[bbh-module='+mod.name+']')){
+									mod.load(context, document.getElementById(e));
+								}
 						}
 						onSuccess();
 					}
@@ -519,6 +524,14 @@ var bobblehead = (function(a){
 		Module: class{
 			constructor(name){
 				this.name = name;
+				this.__controllers = {};
+			}
+			controller(name, routine){
+				this.__controllers[name] = routine.bind(this);
+				return this;
+			}
+			getController(name){
+				return this.__controllers[name];
 			}
 			load(context, dom){}
 		},
@@ -927,6 +940,7 @@ var bobblehead = (function(a){
 	BobbleHead.NotSupportedException = class extends BobbleHead.FrameworkException{};
 	BobbleHead.UnauthorizedException = class extends BobbleHead.FrameworkException{};
 	BobbleHead.InvalidRouteException = class extends BobbleHead.FrameworkException{};
+	BobbleHead.ControllerNotFoundException = class extends BobbleHead.FrameworkException{};
 	//Main Routine
 	return new BobbleHead.AppController('./app.xml');
 
