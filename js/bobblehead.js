@@ -490,8 +490,8 @@ var bobblehead = (function(a){
 						}
 						for(var mod of BobbleHead.ModulePool.getModules()){
 							if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
-								for(var e of this.querySelectorAll('[bbh-module='+mod.name+']')){
-									mod.load(context, document.getElementById(e));
+								for(var e of this.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
+									mod.load(context, e);
 								}
 						}
 						onSuccess();
