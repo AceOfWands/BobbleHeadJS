@@ -491,7 +491,7 @@ var bobblehead = (function(a){
 						for(var mod of BobbleHead.ModulePool.getModules()){
 							if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
 								for(var e of this.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
-									mod.load(context, e);
+									mod.manipulate(context, e);
 								}
 						}
 						onSuccess();
@@ -533,7 +533,7 @@ var bobblehead = (function(a){
 			getController(name){
 				return this.__controllers[name];
 			}
-			load(context, dom){}
+			manipulate(context, dom){}
 		},
 		ModulePool: class{
 			static *getModules(){
