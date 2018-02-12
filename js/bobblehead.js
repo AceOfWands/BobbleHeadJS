@@ -524,6 +524,7 @@ var bobblehead = (function(a){
 		Module: class{
 			constructor(name){
 				this.name = name;
+				this.configuration = {};
 				this.__controllers = {};
 			}
 			controller(name, routine){
@@ -532,6 +533,9 @@ var bobblehead = (function(a){
 			}
 			getController(name){
 				return this.__controllers[name];
+			}
+			setConfig(configuration){
+				this.configuration = configuration;
 			}
 			manipulate(context, dom){}
 		},
@@ -573,13 +577,18 @@ var bobblehead = (function(a){
 		},
 		AppController: class{
 			constructor(xmlConfiguration){
+				this.moduleOnLoad = [];
+				this.initialization = true;
 				BobbleHead.XMLParser.parseUrl(xmlConfiguration,this.processConf.bind(this));
 			}
 			registerModel(model){
 				BobbleHead.ModelPool.addModel(model);
 			}
 			registerModule(module){
-				BobbleHead.ModulePool.addModule(module);
+				if(this.initialization)
+					this.moduleOnLoad.push(module);
+				else
+					BobbleHead.ModulePool.addModule(module);
 			}
 			registerRoute(route){
 				BobbleHead.Router.addRoute(route);
@@ -655,28 +664,51 @@ var bobblehead = (function(a){
 						}
 					}
 					var module_container = temp_configuration.getElementsByTagName('modules')[0];
+					var module_promises = [];
 					if(module_container)
 						var modules_path = module_container.getAttribute('path');
 						for( var m of module_container.getElementsByTagName('module')){
 							if(m.getAttribute('enabled') == 'true'){
+								var hold_mconf = {};
+								for(var c of (m.getElementsByTagName('configuration')[0]).childNodes){
+									if(c instanceof Element)
+										hold_mconf[c.tagName] = c.textContent;
+								}
+								var confModule = new BobbleHead.ModuleConfiguration(hold_mconf);
 								//TODO: Replace with ES6 'import' when fully-compatible
-								var script = document.createElement("script");
-								script.src = modules_path + m.getAttribute('path');
-								document.head.appendChild(script);
+								module_promises.push(
+									new Promise(
+										function(confModule, resolve, reject){
+											var script = document.createElement("script");
+											script.src = modules_path + m.getAttribute('path');
+											script.onload = function(modules, configuration, callback){
+												while(modules.length>0){
+													var sm = modules.shift();
+													sm.setConfig(configuration);
+												}
+												callback();
+											}.bind(script, this.moduleOnLoad, confModule, resolve);
+											document.head.appendChild(script);
+										}.bind(this, confModule)
+									)
+								);
 							}
 						}
-					if(pages_index){
-						hold_conf.index = parseInt(pages_index.getAttribute('vid'));
-						var index_data = null;
-						if(pages_index.getElementsByTagName('data')[0]){
-							index_data = {};
-							for(var c of (pages_index.getElementsByTagName('data')[0]).childNodes){
-								if(c instanceof Element)
-									index_data[c.tagName] = c.textContent;
+					Promise.all(module_promises).then(function(){
+						if(pages_index){
+							hold_conf.index = parseInt(pages_index.getAttribute('vid'));
+							var index_data = null;
+							if(pages_index.getElementsByTagName('data')[0]){
+								index_data = {};
+								for(var c of (pages_index.getElementsByTagName('data')[0]).childNodes){
+									if(c instanceof Element)
+										index_data[c.tagName] = c.textContent;
+								}
 							}
+							globalContext.pageBuilder.buildPage(hold_conf.index,index_data);
 						}
-						globalContext.pageBuilder.buildPage(hold_conf.index,index_data);
-					}
+						this.initialization = false;
+					}.bind(this));
 				}catch(e){
 					BobbleHead.log(e);
 				}

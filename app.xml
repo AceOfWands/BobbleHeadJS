@@ -16,7 +16,7 @@
 	<modules path="./modules/">
 		<module path="restwadl/main.js" enabled="true">
 			<configuration>
-			
+				<test>123456</test>
 			</configuration>
 		</module>
 	</modules>
