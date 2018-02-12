@@ -2,7 +2,7 @@ class RestWadlModule extends BobbleHead.Module{
 	constructor(){
 		super('restwadl');
 	}
-	load(context, dom){}
+	manipulate(context, dom){}
 }
 
 RestWadlModule.Rest = {
