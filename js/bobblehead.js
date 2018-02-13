@@ -613,10 +613,10 @@ var bobblehead = (function(a){
 					var cacher_conf = (temp_configuration.getElementsByTagName('cacher')[0]);
 					if(cacher_conf){
 						for( var b of cacher_conf.getElementsByTagName('block')){
-							cache_blacklist.push(b.textContent);
+							cache_blacklist.push(b.getAttribute('url'));
 						}
 						for( var p of cacher_conf.getElementsByTagName('persist')){
-							cache_whitelist.push(p.textContent);
+							cache_whitelist.push(p.getAttribute('url'));
 						}
 					}
 					BobbleHead.Cacher.init(cache_whitelist, cache_blacklist);
