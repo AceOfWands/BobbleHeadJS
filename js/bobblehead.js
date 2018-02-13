@@ -615,7 +615,7 @@ var bobblehead = (function(a){
 						for( var b of cacher_conf.getElementsByTagName('block')){
 							cache_blacklist.push(b.textContent);
 						}
-						for( var p of cacher_conf.getElementsByTagName('permit')){
+						for( var p of cacher_conf.getElementsByTagName('persist')){
 							cache_whitelist.push(p.textContent);
 						}
 					}
