@@ -378,7 +378,7 @@ var bobblehead = (function(a){
 			}
 		},
 		Cacher: class{
-			static init(){
+			static init(whitelist, blacklist){
 				var db = BobbleHead.Database.getInstance();
 				db.get('cache').then(function(cache) {
 					if(cache.map && cache.heap){
@@ -389,6 +389,8 @@ var bobblehead = (function(a){
 								for(var node of cache.heap.getNodes())
 									node.reduceKey(red);
 						}
+						BobbleHead.Cacher.cacheHeap = cache.heap;
+						BobbleHead.Cacher.cacheMap = cache.map;
 					}else{
 						BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
 						BobbleHead.Cacher.cacheMap = {};
@@ -397,28 +399,34 @@ var bobblehead = (function(a){
 				}).catch(function(err) {
 					BobbleHead.log('Saved cache not found', 1, err);
 				});
+				BobbleHead.Cacher.whitelist = whitelist;
+				BobbleHead.Cacher.blacklist = blacklist;
 			}
 			static cache(request, response){
-				if(BobbleHead.Cacher.cacheMap[request.method] &&
-					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] &&
-					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]){
-					var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
-					hold.incKey();
-					BobbleHead.Cacher.cacheHeap.reheap();
-				}else{
-					if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxNodes)
-						for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
-							var hold = BobbleHead.Cacher.cacheHeap.pop();
-							var reqToDel = hold.getValue();
-							delete BobbleHead.Cacher.cacheMap[reqToDel.method][btoa(reqToDel.uri)][md5(JSON.stringify(reqToDel.data))];
+				if(BobbleHead.Cacher.blacklist.indexOf(request.uri) == -1){
+					if(BobbleHead.Cacher.cacheMap[request.method] &&
+						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] &&
+						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]){
+						var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
+						hold.incKey();
+						BobbleHead.Cacher.cacheHeap.reheap();
+					}else{
+						if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxNodes)
+							for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
+								var hold = BobbleHead.Cacher.cacheHeap.pop();
+								var reqToDel = hold.getValue();
+								delete BobbleHead.Cacher.cacheMap[reqToDel.method][btoa(reqToDel.uri)][md5(JSON.stringify(reqToDel.data))];
+							}
+						if(BobbleHead.Cacher.whitelist.indexOf(request.uri) == -1){
+							var node = new BobbleHead.Util.HeapNode(1,request);
+							BobbleHead.Cacher.cacheHeap.addNode(node);
 						}
-					var node = new BobbleHead.Util.HeapNode(1,request);
-					BobbleHead.Cacher.cacheHeap.addNode(node);
-					if(!BobbleHead.Cacher.cacheMap[request.method])
-						BobbleHead.Cacher.cacheMap[request.method] = {};
-					if(!BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
-						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] = {};
-					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
+						if(!BobbleHead.Cacher.cacheMap[request.method])
+							BobbleHead.Cacher.cacheMap[request.method] = {};
+						if(!BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
+							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] = {};
+						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
+					}
 				}
 			}
 			static getCached(request){
@@ -596,11 +604,22 @@ var bobblehead = (function(a){
 			processConf(conf){
 				if(!conf) return;
 				try{
-					BobbleHead.Cacher.init();
 					var temp_configuration = conf.getElementsByTagName('configuration')[0];
 					var hold_conf = {};
 					hold_conf.container = (temp_configuration.getElementsByTagName('container')[0]).textContent;
 					var pageBuilder_conf = (temp_configuration.getElementsByTagName('pageBuilder')[0]);
+					var cache_whitelist = [];
+					var cache_blacklist = [];
+					var cacher_conf = (temp_configuration.getElementsByTagName('cacher')[0]);
+					if(cacher_conf){
+						for( var b of cacher_conf.getElementsByTagName('block')){
+							cache_blacklist.push(b.textContent);
+						}
+						for( var p of cacher_conf.getElementsByTagName('permit')){
+							cache_whitelist.push(p.textContent);
+						}
+					}
+					BobbleHead.Cacher.init(cache_whitelist, cache_blacklist);
 					var globalContext = BobbleHead.Context.getGlobal();
 					if(pageBuilder_conf){
 						pageBuilder_conf = pageBuilder_conf.textContent;
@@ -664,8 +683,8 @@ var bobblehead = (function(a){
 						}
 					}
 					var module_container = temp_configuration.getElementsByTagName('modules')[0];
-					var module_promises = [];
-					if(module_container)
+					var current_promise = null;
+					if(module_container){
 						var modules_path = module_container.getAttribute('path');
 						for( var m of module_container.getElementsByTagName('module')){
 							if(m.getAttribute('enabled') == 'true'){
@@ -676,9 +695,9 @@ var bobblehead = (function(a){
 								}
 								var confModule = new BobbleHead.ModuleConfiguration(hold_mconf);
 								//TODO: Replace with ES6 'import' when fully-compatible
-								module_promises.push(
-									new Promise(
-										function(confModule, resolve, reject){
+								current_promise = new Promise(
+									function(confModule, current_promise, resolve, reject){
+										var mod_load_func = function(confModule, resolve){
 											var script = document.createElement("script");
 											script.src = modules_path + m.getAttribute('path');
 											script.onload = function(modules, configuration, callback){
@@ -689,12 +708,17 @@ var bobblehead = (function(a){
 												callback();
 											}.bind(script, this.moduleOnLoad, confModule, resolve);
 											document.head.appendChild(script);
-										}.bind(this, confModule)
-									)
+										}.bind(this, confModule, resolve);
+										if(current_promise!=null)
+											current_promise.then(mod_load_func);
+										else
+											mod_load_func(confModule, resolve);
+									}.bind(this, confModule, current_promise)
 								);
 							}
 						}
-					Promise.all(module_promises).then(function(){
+					}
+					current_promise.then(function(){
 						if(pages_index){
 							hold_conf.index = parseInt(pages_index.getAttribute('vid'));
 							var index_data = null;
@@ -897,6 +921,8 @@ var bobblehead = (function(a){
 	BobbleHead.ExternalConnector.instance = null;
 	BobbleHead.Cacher.cacheHeap = null;
 	BobbleHead.Cacher.cacheMap = null;
+	BobbleHead.Cacher.whitelist = null;
+	BobbleHead.Cacher.blacklist = null;
 	BobbleHead.Cacher.maxNodes = 1000;
 	BobbleHead.Cacher.nodesPartNum = 3;
 	BobbleHead.Database.instance = null;
