@@ -119,13 +119,17 @@ var bobblehead = (function(a){
 			constructor(name){
 				this.name = name;
 			}
-			get(id){}
+			get(proprietes){}
+			update(instance){}
+			save(instance){}
+			destroy(instance){}
 		},
 		ModelInstance: class{
-			constructor(id, model, change = null){
+			constructor(id, model, change = null, allowEdit = true){
 				this.id = id;
 				this.model = model;
 				this.change = change.bind(this);
+				this.allowEdit = allowEdit;
 			}
 		},
 		ModelPool: class{
@@ -249,7 +253,27 @@ var bobblehead = (function(a){
 		},
 		AccessController: class{
 			getCurrentSession(){
-				return this.currentAuthMethod.getCurrentSession();
+				if(this.currentAuthMethod){
+					var sess = this.currentAuthMethod.getCurrentSession();
+					if((this.controllerData && sess != this.controllerData.session)
+						|| ((!this.controllerData) && sess)){
+						this.saveSession(sess);
+					}
+					return sess;
+				}
+				return (this.controllerData) ? this.controllerData.session : null;
+			}
+			saveSession(sess){
+				var db = BobbleHead.Database.getInstance();
+				var acObj = this.controllerData;
+				acObj._id = 'AccessController';
+				acObj.session = sess;
+				db.put(acObj,{rev: true}).then(function (response) {
+					this.controllerData._rev = response.rev;
+					BobbleHead.log('Saved local session', 0, response);
+				}.bind(this)).catch(function (err) {
+					BobbleHead.log('Cannot save local session', 1, err);
+				});
 			}
 			processRequest(request){
 				if(this.currentAuthMethod){
@@ -270,8 +294,14 @@ var bobblehead = (function(a){
 				this.currentAuthMethod = new (BobbleHead.AuthenticationMethods.getMethod(authType) ||
 					BobbleHead.AuthenticationMethods.NoneAuthentication)();
 				var db = BobbleHead.Database.getInstance();
-				db.get('session').then(function(session) {
-					this.currentAuthMethod.replaceCurrentSession(session);
+				this.controllerData = null;
+				db.get('AccessController').then(function(cData) {
+					if(cData)
+						this.controllerData = cData;
+					else
+						this.controllerData = {};
+					this.currentAuthMethod.replaceCurrentSession(cData.session);
+					BobbleHead.log('Fetched local session', 0, cData.session);
 				}.bind(this)).catch(function(err) {
 					BobbleHead.log('Cannot retrive local session', 1, err);
 				});
@@ -280,12 +310,6 @@ var bobblehead = (function(a){
 		AuthenticationMethod: class{
 			constructor(){
 				this.session = null;
-			}
-			login(data = null){
-				return null;
-			}
-			logout(data = null){
-				return null;
 			}
 			processRequest(request = null){}
 			processPage(page = null){}
@@ -407,9 +431,9 @@ var bobblehead = (function(a){
 					if(BobbleHead.Cacher.cacheMap[request.method] &&
 						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] &&
 						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]){
-						var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
-						hold.incKey();
-						BobbleHead.Cacher.cacheHeap.reheap();
+							var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
+							hold.incKey();
+							BobbleHead.Cacher.cacheHeap.reheap();
 					}else{
 						if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxNodes)
 							for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
@@ -425,8 +449,8 @@ var bobblehead = (function(a){
 							BobbleHead.Cacher.cacheMap[request.method] = {};
 						if(!BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
 							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] = {};
-						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
 					}
+					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
 				}
 			}
 			static getCached(request){
@@ -799,11 +823,12 @@ var bobblehead = (function(a){
 			}
 		},
 		log: function(data,level = null,description = null){
-			if(level && description){
-				if(level>1)
-					console.err('['+data+'] '+description);
+			if(level!=null && description != null){
+				if(parseInt(level)>1)
+					
+					console.err('['+data+'] ', description);
 				else
-					console.log('['+data+'] '+description)
+					console.log('['+data+'] ', description)
 			}else
 				console.log(data);
 		},
@@ -907,6 +932,9 @@ var bobblehead = (function(a){
 				}
 				getValue(){
 					return this.value;
+				}
+				setValue(value){
+					this.value = value;
 				}
 			}
 		}
