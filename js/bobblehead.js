@@ -255,21 +255,22 @@ var bobblehead = (function(a){
 			getCurrentSession(){
 				if(this.currentAuthMethod){
 					var sess = this.currentAuthMethod.getCurrentSession();
-					if((this.controllerData && sess != this.controllerData.session)
-						|| ((!this.controllerData) && sess)){
+					if((this.controllerData.session && sess != this.controllerData.session)
+						|| ((!this.controllerData.session) && sess)){
 						this.saveSession(sess);
 					}
 					return sess;
 				}
-				return (this.controllerData) ? this.controllerData.session : null;
+				return this.controllerData.session;
 			}
 			saveSession(sess){
 				var db = BobbleHead.Database.getInstance();
-				var acObj = this.controllerData;
-				acObj._id = 'AccessController';
-				acObj.session = sess;
-				db.put(acObj,{rev: true}).then(function (response) {
-					this.controllerData._rev = response.rev;
+				sess._id = 'session';
+				if(this.controllerData.session)
+					sess._rev = this.controllerData.session._rev;
+				this.controllerData.session = sess;
+				db.put(sess,{rev: true}).then(function (response) {
+					this.controllerData.session._rev = response.rev;
 					BobbleHead.log('Saved local session', 0, response);
 				}.bind(this)).catch(function (err) {
 					BobbleHead.log('Cannot save local session', 1, err);
@@ -294,17 +295,15 @@ var bobblehead = (function(a){
 				this.currentAuthMethod = new (BobbleHead.AuthenticationMethods.getMethod(authType) ||
 					BobbleHead.AuthenticationMethods.NoneAuthentication)();
 				var db = BobbleHead.Database.getInstance();
-				this.controllerData = null;
-				db.get('AccessController').then(function(cData) {
-					if(cData)
-						this.controllerData = cData;
-					else
-						this.controllerData = {};
-					this.currentAuthMethod.replaceCurrentSession(cData.session);
-					BobbleHead.log('Fetched local session', 0, cData.session);
+				this.controllerData = {};
+				db.get('session').then(function(session) {
+					this.controllerData.session = session;
+					this.currentAuthMethod.replaceCurrentSession(session);
+					BobbleHead.log('Fetched local session', 0, session);
 				}.bind(this)).catch(function(err) {
+					this.controllerData.session = null;
 					BobbleHead.log('Cannot retrive local session', 1, err);
-				});
+				}.bind(this));
 			}
 		},
 		AuthenticationMethod: class{
@@ -402,40 +401,57 @@ var bobblehead = (function(a){
 			}
 		},
 		Cacher: class{
-			static init(whitelist, blacklist){
+			static init(maxcached, whitelist, blacklist){
 				var db = BobbleHead.Database.getInstance();
-				db.get('cache').then(function(cache) {
-					if(cache.map && cache.heap){
-						var hold = cache.heap.getFirst();
+				db.get('cacheMap').then(function(cacheMap) {
+					if(cacheMap)
+						BobbleHead.Cacher.cacheMap = cacheMap;
+					else{
+						BobbleHead.Cacher.cacheMap = {};
+						BobbleHead.log('Cacher',0,'Cacher map not found');
+					}
+				}).catch(function(err) {
+					BobbleHead.log('Cacher map not found', 1, err);
+				});
+				db.get('cacheHeap').then(function(cacheHeap) {
+					if(cacheHeap){
+						var hold = cacheHeap.getFirst();
 						if(hold!=null){
 							var red = hold.getKey()-1;
 							if(red>0)
-								for(var node of cache.heap.getNodes())
+								for(var node of cacheHeap.getNodes())
 									node.reduceKey(red);
 						}
-						BobbleHead.Cacher.cacheHeap = cache.heap;
-						BobbleHead.Cacher.cacheMap = cache.map;
+						BobbleHead.Cacher.cacheHeap = cacheHeap;
 					}else{
 						BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
-						BobbleHead.Cacher.cacheMap = {};
-						BobbleHead.log('Cacher',0,'No cache object');
+						BobbleHead.log('Cacher',0,'Cacher heap not found');
 					}
 				}).catch(function(err) {
-					BobbleHead.log('Saved cache not found', 1, err);
+					BobbleHead.log('Cacher heap not found', 1, err);
 				});
 				BobbleHead.Cacher.whitelist = whitelist;
 				BobbleHead.Cacher.blacklist = blacklist;
+				BobbleHead.Cacher.maxCached = maxcached;
 			}
 			static cache(request, response){
 				if(BobbleHead.Cacher.blacklist.indexOf(request.uri) == -1){
+					var db = BobbleHead.Database.getInstance();
 					if(BobbleHead.Cacher.cacheMap[request.method] &&
 						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] &&
 						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]){
 							var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
 							hold.incKey();
 							BobbleHead.Cacher.cacheHeap.reheap();
+							db.put(BobbleHead.Cacher.cacheHeap,{rev: true}).then(function (response) {
+								BobbleHead.Cacher.cacheHeap._rev = response.rev;
+								BobbleHead.log('Saved Cacher heap', 0, response);
+							}).catch(function (err) {
+								BobbleHead.log('Cannot save Cacher heap', 1, err);
+							});
+							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
 					}else{
-						if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxNodes)
+						if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxCached)
 							for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
 								var hold = BobbleHead.Cacher.cacheHeap.pop();
 								var reqToDel = hold.getValue();
@@ -449,8 +465,14 @@ var bobblehead = (function(a){
 							BobbleHead.Cacher.cacheMap[request.method] = {};
 						if(!BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
 							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] = {};
+							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
+							db.put(BobbleHead.Cacher.cacheMap,{rev: true}).then(function (response) {
+								BobbleHead.Cacher.cacheMap._rev = response.rev;
+								BobbleHead.log('Saved Cacher map', 0, response);
+							}).catch(function (err) {
+								BobbleHead.log('Cannot save Cacher map', 1, err);
+							});
 					}
-					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
 				}
 			}
 			static getCached(request){
@@ -634,8 +656,10 @@ var bobblehead = (function(a){
 					var pageBuilder_conf = (temp_configuration.getElementsByTagName('pageBuilder')[0]);
 					var cache_whitelist = [];
 					var cache_blacklist = [];
+					var cache_maxcached = 1000;
 					var cacher_conf = (temp_configuration.getElementsByTagName('cacher')[0]);
 					if(cacher_conf){
+						cache_maxcached = parseInt(cacher_conf.getAttribute('max-cached'));
 						for( var b of cacher_conf.getElementsByTagName('block')){
 							cache_blacklist.push(b.getAttribute('url'));
 						}
@@ -643,7 +667,7 @@ var bobblehead = (function(a){
 							cache_whitelist.push(p.getAttribute('url'));
 						}
 					}
-					BobbleHead.Cacher.init(cache_whitelist, cache_blacklist);
+					BobbleHead.Cacher.init(cache_maxcached, cache_whitelist, cache_blacklist);
 					var globalContext = BobbleHead.Context.getGlobal();
 					if(pageBuilder_conf){
 						pageBuilder_conf = pageBuilder_conf.textContent;
@@ -951,7 +975,7 @@ var bobblehead = (function(a){
 	BobbleHead.Cacher.cacheMap = null;
 	BobbleHead.Cacher.whitelist = null;
 	BobbleHead.Cacher.blacklist = null;
-	BobbleHead.Cacher.maxNodes = 1000;
+	BobbleHead.Cacher.maxCached = 1000;
 	BobbleHead.Cacher.nodesPartNum = 3;
 	BobbleHead.Database.instance = null;
 	BobbleHead.XMLParser.domParser = null;
