@@ -208,47 +208,49 @@ var bobblehead = (function(a){
 					BobbleHead.InternalConnector.instance = new BobbleHead.InternalConnector();
 				return BobbleHead.InternalConnector.instance;
 			}
-			doRequest(request,onSuccess = BobbleHead.defaultCallback,onFailure = BobbleHead.defaultCallback){
-				if(request.uri.startsWith('app://')){
-					try{
-						var uri = BobbleHead.Router.route(request.uri);
-						var subUri = uri.substring(6);
-						if(subUri.startsWith('page/')){
-							var num = BobbleHead.Util.vidInURIPattern.exec(subUri);
-							if(num){
-								vid_str = num[1];
-								var context = BobbleHead.Context.getGlobal();
-								if(vid_str == 'back')
-									context.pageBuilder.pageBack();
+			doRequest(request){
+				return new Promise(function(resolve, reject) {
+					if(request.uri.startsWith('app://')){
+						try{
+							var uri = BobbleHead.Router.route(request.uri);
+							var subUri = uri.substring(6);
+							if(subUri.startsWith('page/')){
+								var num = BobbleHead.Util.vidInURIPattern.exec(subUri);
+								if(num){
+									vid_str = num[1];
+									var context = BobbleHead.Context.getGlobal();
+									if(vid_str == 'back')
+										context.pageBuilder.pageBack();
+									else
+										context.pageBuilder.buildPage(parseInt(vid_str),request.data).then(resolve).catch(reject);
+								}
+							}else if(subUri.startsWith('module/')){
+								var subSubUri = subUri.substring(7);
+								var n = subSubUri.indexOf('/');
+								var moduleName = null;
+								if(n>=0)
+									moduleName = subSubUri.substring(0, n);
 								else
-									context.pageBuilder.buildPage(parseInt(vid_str),request.data, onSuccess, onFailure);
+									moduleName = subSubUri;
+								var module = BobbleHead.ModulePool.getModule(moduleName);
+								var subSubSubUri = subSubUri.substring(n);
+								n = subSubSubUri.indexOf('/');
+								var controllerName = null;
+								if(n>=0)
+									controllerName = subSubSubUri.substring(0, n);
+								else
+									controllerName = subSubSubUri;
+								var controllr = module.getController(controllerName);
+								if(controllr!=null)
+									controllr(request.data, resolve, reject);
+								else
+									reject(new BobbleHead.ControllerNotFoundException());
 							}
-						}else if(subUri.startsWith('module/')){
-							var subSubUri = subUri.substring(7);
-							var n = subSubUri.indexOf('/');
-							var moduleName = null;
-							if(n>=0)
-								moduleName = subSubUri.substring(0, n);
-							else
-								moduleName = subSubUri;
-							var module = BobbleHead.ModulePool.getModule(moduleName);
-							var subSubSubUri = subSubUri.substring(n);
-							n = subSubSubUri.indexOf('/');
-							var controllerName = null;
-							if(n>=0)
-								controllerName = subSubSubUri.substring(0, n);
-							else
-								controllerName = subSubSubUri;
-							var controllr = module.getController(controllerName);
-							if(controllr!=null)
-								controllr(request.data, onSuccess, onFailure);
-							else
-								onFailure(new BobbleHead.ControllerNotFoundException());
+						}catch(e){
+							reject(e);
 						}
-					}catch(e){
-						onFailure(e);
 					}
-				}
+				});
 			}
 		},
 		AccessController: class{
@@ -334,70 +336,74 @@ var bobblehead = (function(a){
 					BobbleHead.ExternalConnector.instance = new BobbleHead.ExternalConnector();
 				return BobbleHead.ExternalConnector.instance;
 			}
-			doRequest(request,onSuccess = BobbleHead.defaultCallback,onFailure = BobbleHead.defaultCallback){
-				var xhttp = new XMLHttpRequest();
-				var url = encodeURI(request.uri);
-				if(request.method == 'get' && params){
-					var _param = '';
-					for (var pair of request.data.entries()) {
-						if(pair[0]&&(pair[1] || pair[1]===0))
-							_param += pair[0]+'='+pair[1].toString().trim()+'&';
-					}
-					_param = _param.slice(0, -1);
-					url += '?'+_param;
-				}
-				xhttp.open(request.getMethod(), url, true);
-				for(var header of request.getHeaders())
-					xhttp.setRequestHeader(header.name, header.value);
-				xhttp.responseType = 'json';
-				xhttp.onreadystatechange = function(){
-					var res = new Core.ResultMessage();
-					if(xhttp.readyState === XMLHttpRequest.DONE){
-						var response = null;
-						res.code = 0;
-						res.status = xhttp.status;
-						if(xhttp.status !== 200) {
-							var statusType = Math.floor(xhttp.status/100);
-							if(statusType!=4)
-								response = BobbleHead.Cacher.getCached(request);
-							if(!response){
-								res.code = -10;
-								res.content = {'error':'Connection Error'};
-							}
+			doRequest(request){
+				return new Promise(function(resolve, reject) {
+					var xhttp = new XMLHttpRequest();
+					var url = encodeURI(request.uri);
+					if(request.method == 'get' && params){
+						var _param = '';
+						for (var pair of request.data.entries()) {
+							if(pair[0]&&(pair[1] || pair[1]===0))
+								_param += pair[0]+'='+pair[1].toString().trim()+'&';
 						}
-						if(!response)
-							response = xhttp.response;
-						if(response){
+						_param = _param.slice(0, -1);
+						url += '?'+_param;
+					}
+					xhttp.open(request.getMethod(), url, true);
+					for(var header of request.getHeaders())
+						xhttp.setRequestHeader(header.name, header.value);
+					xhttp.responseType = 'json';
+					xhttp.onreadystatechange = function(){
+						var res = new Core.ResultMessage();
+						if(xhttp.readyState === XMLHttpRequest.DONE){
+							var response = null;
 							res.code = 0;
-							res.content = response;
-						}else if(xhttp.status === 200){
-							res.code = -11;
-							res.content = {'error':'No data response'};
+							res.status = xhttp.status;
+							if(xhttp.status !== 200) {
+								var statusType = Math.floor(xhttp.status/100);
+								if(statusType!=4)
+									response = BobbleHead.Cacher.getCached(request);
+								if(!response){
+									res.code = -10;
+									res.content = {'error':'Connection Error'};
+								}
+							}
+							if(!response)
+								response = xhttp.response;
+							if(response){
+								res.code = 0;
+								res.content = response;
+							}else if(xhttp.status === 200){
+								res.code = -11;
+								res.content = {'error':'No data response'};
+							}
+							if(xhttp.status === 200){
+								BobbleHead.Cacher.cache(request,response);
+							}
+							if(res.code==0)
+								resolve(res);
+							else
+								reject(res);
 						}
-						if(xhttp.status === 200){
-							BobbleHead.Cacher.cache(request,response);
-						}
-						if(res.code==0)
-							onSuccess(res);
-						else
-							onFailure(res);
-					}
-				};
-				xhttp.send(request.getData());
+					};
+					xhttp.send(request.getData());
+				});
 			}
 		},
 		GenericConnector: class{
 			request(request,onSuccess = BobbleHead.defaultCallback,onFailure = BobbleHead.defaultCallback){
-				var test = BobbleHead.Util.isRemoteURIPattern.test(request.uri);
-				var connector = null;
-				var context = BobbleHead.Context.getGlobal();
-				context.accessController.processRequest(request);
-				if(!test){
-					connector = BobbleHead.InternalConnector.getInstance();
-				}else{
-					connector = BobbleHead.ExternalConnector.getInstance();
-				}
-				connector.doRequest(request, onSuccess, onFailure);
+				return new Promise(function(resolve, reject) {
+					var test = BobbleHead.Util.isRemoteURIPattern.test(request.uri);
+					var connector = null;
+					var context = BobbleHead.Context.getGlobal();
+					context.accessController.processRequest(request);
+					if(!test){
+						connector = BobbleHead.InternalConnector.getInstance();
+					}else{
+						connector = BobbleHead.ExternalConnector.getInstance();
+					}
+					connector.doRequest(request).then(resolve).catch(reject);
+				});
 			}
 		},
 		Cacher: class{
@@ -496,18 +502,20 @@ var bobblehead = (function(a){
 				var context = BobbleHead.Context.getGlobal();
 				context.accessController.processVirtualPage(vpage);
 			}
-			buildPage(virtualID, data, onSuccess = BobbleHead.defaultCallback, onFailure = BobbleHead.defaultCallback){
-				var page = BobbleHead.PageFactory.getPage(virtualID);
-				if(page){
-					if(!page.lock && this.currentPage!=null)
-						this.pageStack.push(this.currentPage);
-					if(page.lock)
-						this.pageStack = [];
-					this.currentPage = new BobbleHead.VirtualPage(page, data, onSuccess, onFailure);
-					this.checkVirtualPage(this.currentPage);
-					this.buildPageByObject(page, data, onSuccess, onFailure);
-				}else
-					onFailure(new BobbleHead.PageNotFoundException());
+			buildPage(virtualID, data){
+				return new Promise(function(resolve, reject) {
+					var page = BobbleHead.PageFactory.getPage(virtualID);
+					if(page){
+						if(!page.lock && this.currentPage!=null)
+							this.pageStack.push(this.currentPage);
+						if(page.lock)
+							this.pageStack = [];
+						this.currentPage = new BobbleHead.VirtualPage(page, data, resolve, reject);
+						this.checkVirtualPage(this.currentPage);
+						this.buildPageByObject(page, data, resolve, reject);
+					}else
+						reject(new BobbleHead.PageNotFoundException());
+				}.bind(this));
 			}
 			buildPageByObject(page, data, onSuccess = BobbleHead.defaultCallback, onFailure = BobbleHead.defaultCallback){
 				this.checkPage(page);
@@ -545,7 +553,7 @@ var bobblehead = (function(a){
 						for(var mod of BobbleHead.ModulePool.getModules()){
 							if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
 								for(var e of this.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
-									mod.manipulate(context, e);
+									mod.manipulate(context.clone(), e);
 								}
 						}
 						onSuccess();
@@ -588,7 +596,7 @@ var bobblehead = (function(a){
 			getController(name){
 				return this.__controllers[name];
 			}
-			setConfig(configuration){
+			init(context, configuration){
 				this.configuration = configuration;
 			}
 			manipulate(context, dom){}
@@ -751,7 +759,7 @@ var bobblehead = (function(a){
 											script.onload = function(modules, configuration, callback){
 												while(modules.length>0){
 													var sm = modules.shift();
-													sm.setConfig(configuration);
+													sm.init(globalContext.clone(), configuration);
 												}
 												callback();
 											}.bind(script, this.moduleOnLoad, confModule, resolve);
