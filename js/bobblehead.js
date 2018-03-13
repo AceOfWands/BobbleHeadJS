@@ -293,18 +293,24 @@ var bobblehead = (function(a){
 					this.currentAuthMethod.processVirtualPage(vpage);
 				}
 			}
-			constructor(authType = 'none'){
-				this.currentAuthMethod = new (BobbleHead.AuthenticationMethods.getMethod(authType) ||
-					BobbleHead.AuthenticationMethods.NoneAuthentication)();
-				var db = BobbleHead.Database.getInstance();
-				this.controllerData = {};
-				db.get('session').then(function(session) {
-					this.controllerData.session = session;
-					this.currentAuthMethod.replaceCurrentSession(session);
-					BobbleHead.log('Fetched local session', 0, session);
-				}.bind(this)).catch(function(err) {
-					this.controllerData.session = null;
-					BobbleHead.log('Cannot retrive local session', 1, err);
+			init(authType = 'none'){
+				return new Promise(function(resolve, reject){
+					this.currentAuthMethod = new (BobbleHead.AuthenticationMethods.getMethod(authType) ||
+						BobbleHead.AuthenticationMethods.NoneAuthentication)();
+					var db = BobbleHead.Database.getInstance();
+					this.controllerData = {};
+					db.get('session').then(function(session) {
+						this.controllerData.session = session;
+						this.currentAuthMethod.replaceCurrentSession(session);
+						BobbleHead.log('Fetched local session', 0, session);
+						document.dispatchEvent(new BobbleHead.AccessControllerLoadedEvent());
+						resolve();
+					}.bind(this)).catch(function(err) {
+						this.controllerData.session = null;
+						BobbleHead.log('Cannot retrive local session', 1, err);
+						document.dispatchEvent(new BobbleHead.AccessControllerLoadedEvent());
+						resolve();
+					}.bind(this));
 				}.bind(this));
 			}
 		},
@@ -408,37 +414,46 @@ var bobblehead = (function(a){
 		},
 		Cacher: class{
 			static init(maxcached, whitelist, blacklist){
-				var db = BobbleHead.Database.getInstance();
-				db.get('cacheMap').then(function(cacheMap) {
-					if(cacheMap)
-						BobbleHead.Cacher.cacheMap = cacheMap;
-					else{
-						BobbleHead.Cacher.cacheMap = {};
-						BobbleHead.log('Cacher',0,'Cacher map not found');
-					}
-				}).catch(function(err) {
-					BobbleHead.log('Cacher map not found', 1, err);
-				});
-				db.get('cacheHeap').then(function(cacheHeap) {
-					if(cacheHeap){
-						var hold = cacheHeap.getFirst();
-						if(hold!=null){
-							var red = hold.getKey()-1;
-							if(red>0)
-								for(var node of cacheHeap.getNodes())
-									node.reduceKey(red);
+				return new Promise(function(resolve, reject){
+					var db = BobbleHead.Database.getInstance();
+					db.get('cacheMap').then(function(cacheMap) {
+						if(cacheMap)
+							BobbleHead.Cacher.cacheMap = cacheMap;
+						else{
+							BobbleHead.Cacher.cacheMap = {};
+							BobbleHead.log('Cacher',0,'Cacher map not found');
 						}
-						BobbleHead.Cacher.cacheHeap = cacheHeap;
-					}else{
-						BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
-						BobbleHead.log('Cacher',0,'Cacher heap not found');
-					}
-				}).catch(function(err) {
-					BobbleHead.log('Cacher heap not found', 1, err);
-				});
-				BobbleHead.Cacher.whitelist = whitelist;
-				BobbleHead.Cacher.blacklist = blacklist;
-				BobbleHead.Cacher.maxCached = maxcached;
+						
+						db.get('cacheHeap').then(function(cacheHeap) {
+							if(cacheHeap){
+								var hold = cacheHeap.getFirst();
+								if(hold!=null){
+									var red = hold.getKey()-1;
+									if(red>0)
+										for(var node of cacheHeap.getNodes())
+											node.reduceKey(red);
+								}
+								BobbleHead.Cacher.cacheHeap = cacheHeap;
+							}else{
+								BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
+								BobbleHead.log('Cacher',0,'Cacher heap not found');
+							}
+							document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
+							resolve();
+						}).catch(function(err) {
+							BobbleHead.log('Cacher heap not found', 1, err);
+							document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
+							resolve();
+						});
+					}).catch(function(err) {
+						BobbleHead.log('Cacher map not found', 1, err);
+						document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
+						resolve();
+					});
+					BobbleHead.Cacher.whitelist = whitelist;
+					BobbleHead.Cacher.blacklist = blacklist;
+					BobbleHead.Cacher.maxCached = maxcached;
+				}.bind(this));
 			}
 			static cache(request, response){
 				if(BobbleHead.Cacher.blacklist.indexOf(request.uri) == -1){
@@ -528,7 +543,7 @@ var bobblehead = (function(a){
 						var context = BobbleHead.Context.getGlobal();
 						document.getElementById(this.container).innerHTML = Mustache.render(xhttp.response,
 							{pageData: data, models: BobbleHead.ModelPool.getModels()});
-						var a = document.getElementsByTagName("a");
+						var a = document.getElementsByTagName("a:not([bbh-ignore])");
 						for(var i=0; i<a.length; i++){
 							if(!BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
 								a[i].onclick = function(connector){
@@ -536,7 +551,7 @@ var bobblehead = (function(a){
 									connector.request(req);
 								}.bind(a[i],context.defaultConnector);
 						}
-						var f = document.getElementsByTagName("form");
+						var f = document.getElementsByTagName("form:not([bbh-ignore])");
 						for(var i=0; i<f.length; i++){
 							f[i].submit = function(connector){
 								for(var e of this.querySelectorAll('[name]')){
@@ -550,13 +565,20 @@ var bobblehead = (function(a){
 								connector.request(req);
 							}.bind(f[i],context.defaultConnector);
 						}
+						var modpromises = [];
 						for(var mod of BobbleHead.ModulePool.getModules()){
 							if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
 								for(var e of this.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
-									mod.manipulate(context.clone(), e);
+									e.setAttribute('bbh-manipulating','true');
+									modpromises.append(mod.manipulate(context.clone(), e));
+									e.setAttribute('bbh-manipulating','false');
 								}
 						}
-						onSuccess();
+						Promise.all(modpromises).then(function(){
+							document.dispatchEvent(new BobbleHead.PageReadyEvent());
+							onSuccess();
+						});
+						
 					}
 				}.bind(this, data, page.modules, onSuccess, onFailure);
 				xhttp.send(null);
@@ -675,42 +697,7 @@ var bobblehead = (function(a){
 							cache_whitelist.push(p.getAttribute('url'));
 						}
 					}
-					BobbleHead.Cacher.init(cache_maxcached, cache_whitelist, cache_blacklist);
-					var globalContext = BobbleHead.Context.getGlobal();
-					if(pageBuilder_conf){
-						pageBuilder_conf = pageBuilder_conf.textContent;
-						try{
-							globalContext.pageBuilder = new (BobbleHead.Util.getClassFromName(pageBuilder_conf))();
-						}catch(e){
-							BobbleHead.log(e);
-							globalContext.pageBuilder = new BobbleHead.PageBuilder();
-						}
-					}else
-						globalContext.pageBuilder = new BobbleHead.PageBuilder();
-					globalContext.pageBuilder.container = hold_conf.container;
-					var defaultConnector_conf = (temp_configuration.getElementsByTagName('defaultConnector')[0]);
-					if(defaultConnector_conf){
-						defaultConnector_conf = defaultConnector_conf.textContent;
-						try{
-							globalContext.defaultConnector = new (BobbleHead.Util.getClassFromName(defaultConnector_conf))();
-						}catch(e){
-							BobbleHead.log(e);
-							globalContext.defaultConnector = new BobbleHead.GenericConnector();
-						}
-					}else
-						globalContext.defaultConnector = new BobbleHead.GenericConnector();
-					var accessController_conf = (temp_configuration.getElementsByTagName('accessController')[0]);
-					if(accessController_conf){
-						accessController_conf = accessController_conf.textContent;
-						try{
-							globalContext.accessController = new (BobbleHead.Util.getClassFromName(accessController_conf)(accessController_conf.getAttribute('method')));
-						}catch(e){
-							BobbleHead.log(e);
-							globalContext.accessController = new BobbleHead.AccessController(accessController_conf.getAttribute('method') || 'none');
-						}
-					}else{
-						globalContext.accessController = new BobbleHead.AccessController('none');
-					}
+					var cacher_promise = BobbleHead.Cacher.init(cache_maxcached, cache_whitelist, cache_blacklist);
 					var page_container = temp_configuration.getElementsByTagName('pages')[0];
 					var pages_index = page_container.getElementsByTagName('index')[0];
 					var pages_path = page_container.getAttribute('path');
@@ -740,6 +727,7 @@ var bobblehead = (function(a){
 					}
 					var module_container = temp_configuration.getElementsByTagName('modules')[0];
 					var current_promise = null;
+					var globalContext = BobbleHead.Context.getGlobal();
 					if(module_container){
 						var modules_path = module_container.getAttribute('path');
 						for( var m of module_container.getElementsByTagName('module')){
@@ -774,20 +762,61 @@ var bobblehead = (function(a){
 							}
 						}
 					}
-					current_promise.then(function(){
-						if(pages_index){
-							hold_conf.index = parseInt(pages_index.getAttribute('vid'));
-							var index_data = null;
-							if(pages_index.getElementsByTagName('data')[0]){
-								index_data = {};
-								for(var c of (pages_index.getElementsByTagName('data')[0]).childNodes){
-									if(c instanceof Element)
-										index_data[c.tagName] = c.textContent;
-								}
+					Promise.all([cacher_promise, current_promise]).then(function(){
+						var globalContext = BobbleHead.Context.getGlobal();
+						if(pageBuilder_conf){
+							pageBuilder_conf = pageBuilder_conf.textContent;
+							try{
+								globalContext.pageBuilder = new (BobbleHead.Util.getClassFromName(pageBuilder_conf))();
+							}catch(e){
+								BobbleHead.log(e);
+								globalContext.pageBuilder = new BobbleHead.PageBuilder();
 							}
-							globalContext.pageBuilder.buildPage(hold_conf.index,index_data);
+						}else
+							globalContext.pageBuilder = new BobbleHead.PageBuilder();
+						globalContext.pageBuilder.container = hold_conf.container;
+						var defaultConnector_conf = (temp_configuration.getElementsByTagName('defaultConnector')[0]);
+						if(defaultConnector_conf){
+							defaultConnector_conf = defaultConnector_conf.textContent;
+							try{
+								globalContext.defaultConnector = new (BobbleHead.Util.getClassFromName(defaultConnector_conf))();
+							}catch(e){
+								BobbleHead.log(e);
+								globalContext.defaultConnector = new BobbleHead.GenericConnector();
+							}
+						}else
+							globalContext.defaultConnector = new BobbleHead.GenericConnector();
+						var accessController_conf = (temp_configuration.getElementsByTagName('accessController')[0]);
+						var accesscontroller_promise = null;
+						if(accessController_conf){
+							accessController_conf = accessController_conf.textContent;
+							try{
+								globalContext.accessController = new (BobbleHead.Util.getClassFromName(accessController_conf)());
+							accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method'));
+							}catch(e){
+								BobbleHead.log(e);
+								globalContext.accessController = new BobbleHead.AccessController();
+							accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method') || 'none')
+							}
+						}else{
+							globalContext.accessController = new BobbleHead.AccessController();
+							accesscontroller_promise = globalContext.accessController.init('none');
 						}
-						this.initialization = false;
+						accesscontroller_promise.then(function(){
+							if(pages_index){
+								hold_conf.index = parseInt(pages_index.getAttribute('vid'));
+								var index_data = null;
+								if(pages_index.getElementsByTagName('data')[0]){
+									index_data = {};
+									for(var c of (pages_index.getElementsByTagName('data')[0]).childNodes){
+										if(c instanceof Element)
+											index_data[c.tagName] = c.textContent;
+									}
+								}
+								globalContext.pageBuilder.buildPage(hold_conf.index,index_data);
+							}
+							this.initialization = false;
+						}.bind(this));
 					}.bind(this));
 				}catch(e){
 					BobbleHead.log(e);
@@ -854,6 +883,7 @@ var bobblehead = (function(a){
 				this.message = message;
 			}
 		},
+		FrameworkEvent: class extends Event{},
 		log: function(data,level = null,description = null){
 			if(level!=null && description != null){
 				if(parseInt(level)>1)
@@ -1059,6 +1089,22 @@ var bobblehead = (function(a){
 	BobbleHead.UnauthorizedException = class extends BobbleHead.FrameworkException{};
 	BobbleHead.InvalidRouteException = class extends BobbleHead.FrameworkException{};
 	BobbleHead.ControllerNotFoundException = class extends BobbleHead.FrameworkException{};
+	//Events
+	BobbleHead.CacherLoadedEvent = class extends BobbleHead.FrameworkEvent{
+		constructor(data = null){
+			super('cacherloaded', data);
+		}
+	};
+	BobbleHead.AccessControllerLoadedEvent = class extends BobbleHead.FrameworkEvent{
+		constructor(data = null){
+			super('acloaded', data);
+		}
+	};
+	BobbleHead.PageReadyEvent = class extends BobbleHead.FrameworkEvent{
+		constructor(data = null){
+			super('pageready', data);
+		}
+	};
 	//Main Routine
 	return new BobbleHead.AppController('./app.xml');
 
