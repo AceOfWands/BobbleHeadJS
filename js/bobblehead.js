@@ -543,27 +543,29 @@ var bobblehead = (function(a){
 						var context = BobbleHead.Context.getGlobal();
 						document.getElementById(this.container).innerHTML = Mustache.render(xhttp.response,
 							{pageData: data, models: BobbleHead.ModelPool.getModels()});
-						var a = document.getElementsByTagName("a:not([bbh-ignore])");
+						var a = document.getElementsByTagName("a");
 						for(var i=0; i<a.length; i++){
-							if(!BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
+							if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
 								a[i].onclick = function(connector){
 									var req = new BobbleHead.Request('GET', this.getAttribute('href'), null); //TODO: data-*
 									connector.request(req);
 								}.bind(a[i],context.defaultConnector);
 						}
-						var f = document.getElementsByTagName("form:not([bbh-ignore])");
+						var f = document.getElementsByTagName("form");
 						for(var i=0; i<f.length; i++){
-							f[i].submit = function(connector){
-								for(var e of this.querySelectorAll('[name]')){
-									if(!e.checkValidity()){
-										e.reportValidity();
-										return;
+							if(!f[i].hasAttribute('bbh-ignore')){
+								f[i].submit = function(connector){
+									for(var e of this.querySelectorAll('[name]')){
+										if(!e.checkValidity()){
+											e.reportValidity();
+											return;
+										}
 									}
-								}
-								var data = new FormData(this);
-								var req = new BobbleHead.Request(this.getAttribute('method'), this.getAttribute('action'), data);
-								connector.request(req);
-							}.bind(f[i],context.defaultConnector);
+									var data = new FormData(this);
+									var req = new BobbleHead.Request(this.getAttribute('method'), this.getAttribute('action'), data);
+									connector.request(req);
+								}.bind(f[i],context.defaultConnector);
+							}
 						}
 						var modpromises = [];
 						for(var mod of BobbleHead.ModulePool.getModules()){
