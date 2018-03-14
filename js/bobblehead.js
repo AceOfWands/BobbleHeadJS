@@ -714,7 +714,7 @@ var bobblehead = (function(a){
 								hold_vconf[c.tagName] = c.textContent;
 						}
 						var confPage = new BobbleHead.PageConfiguration(hold_vconf);
-						var newPage = new BobbleHead.Page(pages_path+p.getAttribute('path'), 
+						var newPage = new BobbleHead.Page(p.getAttribute('path'), //pages_path+
 							parseInt(p.getAttribute('vid')),(p.getAttribute('noback')=='true'),confPage, modulesAll);
 						BobbleHead.PageFactory.addPage(newPage);
 					}
@@ -762,6 +762,9 @@ var bobblehead = (function(a){
 							}
 						}
 					}
+					var newBase = document.createElement("base");
+					newBase.setAttribute("href", pages_path);
+					document.getElementsByTagName("head")[0].appendChild(newBase);
 					Promise.all([cacher_promise, current_promise]).then(function(){
 						var globalContext = BobbleHead.Context.getGlobal();
 						if(pageBuilder_conf){
