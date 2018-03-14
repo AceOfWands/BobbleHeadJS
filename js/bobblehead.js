@@ -215,9 +215,9 @@ var bobblehead = (function(a){
 							var uri = BobbleHead.Router.route(request.uri);
 							var subUri = uri.substring(6);
 							if(subUri.startsWith('page/')){
-								var num = BobbleHead.Util.vidInURIPattern.exec(subUri);
+								var num = BobbleHead.Util.vidInURIPattern.exec(subUri.substring(5));
 								if(num){
-									vid_str = num[1];
+									var vid_str = num[1];
 									var context = BobbleHead.Context.getGlobal();
 									if(vid_str == 'back')
 										context.pageBuilder.pageBack();
@@ -901,8 +901,8 @@ var bobblehead = (function(a){
 		},
 		Util: {
 			isRemoteURIPattern: /^http[s]?:\/\//i,
-			vidInURIPattern: /^([0-9]+|back)\/?/g,
-			strInURIPattern: /^([\w]+)\/?/g,
+			vidInURIPattern: /^([0-9]+|back)\/?/,
+			strInURIPattern: /^([\w]+)\/?/,
 			getClassFromName: function(str){
 				var curr = window;
 				var _clss = str.split('.');
