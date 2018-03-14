@@ -14,7 +14,7 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
   - [x] AppController (application configuration reader)
   - [x] Internal / External Communicator
   - [x] Modules Controller and DOM Manipulation
-  - [ ] Event Trigging
+  - [x] Event Trigging
 - ### Simple Rest Models Generator
   - [ ] Models generator
 - ### Rest - WADL Communicator
