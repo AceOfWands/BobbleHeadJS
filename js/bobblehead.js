@@ -650,7 +650,7 @@ var bobblehead = (function(a){
 				xhttp.send(null);
 			}
 			pageBack(){
-				var vpage = pageStack.pop();
+				var vpage = this.pageStack.pop();
 				if(vpage){
 					this.checkVirtualPage(vpage);
 					this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
