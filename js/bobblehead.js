@@ -202,6 +202,11 @@ var bobblehead = (function(a){
 				this.roles = roles;
 			}
 		},
+		PageContext: class{
+			constructor(){
+				return new Proxy(this, BobbleHead.Util.windowHandler);
+			}
+		},
 		InternalConnector: class{
 			static getInstance(){
 				if(!BobbleHead.InternalConnector.instance)
@@ -507,6 +512,7 @@ var bobblehead = (function(a){
 			constructor(){
 				this.pageStack = [];
 				this.container = null;
+				this.documentProxy = null;
 				this.currentPage = null;
 			}
 			checkPage(page){
@@ -527,23 +533,81 @@ var bobblehead = (function(a){
 							this.pageStack = [];
 						this.currentPage = new BobbleHead.VirtualPage(page, data, resolve, reject);
 						this.checkVirtualPage(this.currentPage);
-						this.buildPageByObject(page, data, resolve, reject);
+						this.buildPageByObject(page, data, this.currentPage.context, resolve, reject);
 					}else
 						reject(new BobbleHead.PageNotFoundException());
 				}.bind(this));
 			}
-			buildPageByObject(page, data, onSuccess = BobbleHead.defaultCallback, onFailure = BobbleHead.defaultCallback){
+			buildPageByObject(page, data, pageContext, onSuccess = BobbleHead.defaultCallback, onFailure = BobbleHead.defaultCallback){
 				this.checkPage(page);
 				var xhttp = new XMLHttpRequest();
 				xhttp.open("GET", page.path, true);
-				xhttp.onreadystatechange = function(data, modulesToLoad, onSuccess, onFailure){
+				xhttp.onreadystatechange = function(data, pageContext, modulesToLoad, onSuccess, onFailure){
 					if(xhttp.readyState === XMLHttpRequest.DONE && xhttp.status === 404)
 						onFailure(new BobbleHead.PageNotFoundException());
 					else if(xhttp.readyState === XMLHttpRequest.DONE){
 						var context = BobbleHead.Context.getGlobal();
-						document.getElementById(this.container).innerHTML = Mustache.render(xhttp.response,
+						var domcontainer = document.getElementById(this.container);
+						var appContainer = new Proxy(domcontainer, BobbleHead.Util.documentProxyHandler);
+						appContainer.innerHTML = Mustache.render(xhttp.response,
 							{pageData: data, models: BobbleHead.ModelPool.getModels()});
-						var a = document.getElementsByTagName("a");
+						
+						var js = appContainer.getElementsByTagName("script");
+						for(var i=0; i<js.length; i++){
+							if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
+								(function(window, document, scriptfile, nsync) {
+									if(nsync == 'true')
+										new Promise(function(resolve, reject){
+											var xhttp = new XMLHttpRequest();
+											xhttp.open('get', scriptfile, true);
+											xhttp.responseType = 'text';
+											xhttp.onreadystatechange = function(window, document){
+												if(xhttp.readyState === XMLHttpRequest.DONE){
+													try{
+														var globalScopeInit = '';
+														for(var x in window)
+															globalScopeInit += 'var '+x+' = window["'+x+'"];';
+														eval(globalScopeInit+xhttp.response);
+													}catch(e){
+														BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
+													}
+													resolve();
+												}
+											}.bind(window, window, document);
+											xhttp.send();
+										});		
+									else{
+										var xhttp = new XMLHttpRequest();
+										xhttp.open('get', scriptfile, false);
+										xhttp.onreadystatechange = function(window, document){
+											if(xhttp.readyState === XMLHttpRequest.DONE){
+												try{
+													var globalScopeInit = '';
+													for(var x in window)
+														globalScopeInit += 'var '+x+' = window["'+x+'"];';
+													eval(globalScopeInit+xhttp.response);
+												}catch(e){
+													BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
+												}
+											}
+										}.bind(window, window, document);
+										xhttp.send();
+									}
+								})(pageContext, appContainer, js[i].getAttribute('src'), js[i].getAttribute('async'));
+							}else
+								(function(window, document, code) {
+									try{
+										var globalScopeInit = '';
+										for(var x in window)
+											globalScopeInit += 'var '+x+' = window["'+x+'"];';
+										eval(globalScopeInit+code);
+									}catch(e){
+										BobbleHead.log('Execution of script code', 3, e);
+									}
+								}.bind(pageContext))(pageContext, appContainer, js[i].textContent);
+								
+						}
+						var a = appContainer.getElementsByTagName("a");
 						for(var i=0; i<a.length; i++){
 							if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
 								a[i].onclick = function(connector){
@@ -551,7 +615,7 @@ var bobblehead = (function(a){
 									connector.request(req);
 								}.bind(a[i],context.defaultConnector);
 						}
-						var f = document.getElementsByTagName("form");
+						var f = appContainer.getElementsByTagName("form");
 						for(var i=0; i<f.length; i++){
 							if(!f[i].hasAttribute('bbh-ignore')){
 								f[i].submit = function(connector){
@@ -570,7 +634,7 @@ var bobblehead = (function(a){
 						var modpromises = [];
 						for(var mod of BobbleHead.ModulePool.getModules()){
 							if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
-								for(var e of this.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
+								for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
 									e.setAttribute('bbh-manipulating','true');
 									modpromises.append(mod.manipulate(context.clone(), e));
 									e.setAttribute('bbh-manipulating','false');
@@ -582,14 +646,14 @@ var bobblehead = (function(a){
 						});
 						
 					}
-				}.bind(this, data, page.modules, onSuccess, onFailure);
+				}.bind(this, data, pageContext, page.modules, onSuccess, onFailure);
 				xhttp.send(null);
 			}
 			pageBack(){
 				var vpage = pageStack.pop();
 				if(vpage){
 					this.checkVirtualPage(vpage);
-					this.buildPageByObject(vpage.page, vpage.data, vpage.success, vpage.fail);
+					this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
 				}else
 					throw new BobbleHead.PageNotFoundException();
 			}
@@ -647,6 +711,7 @@ var bobblehead = (function(a){
 			constructor(page, data, success, fail){
 				this.page = page;
 				this.data = data;
+				this.context = new BobbleHead.PageContext();
 				this.success = success;
 				this.fail = fail;
 			}
@@ -893,7 +958,7 @@ var bobblehead = (function(a){
 			if(level!=null && description != null){
 				if(parseInt(level)>1)
 					
-					console.err('['+data+'] ', description);
+					console.error('['+data+'] ', description);
 				else
 					console.log('['+data+'] ', description)
 			}else
@@ -910,6 +975,48 @@ var bobblehead = (function(a){
 					curr = curr[_clss[i]];
 				}
 				return curr;
+			},
+			windowHandler: {
+				get: function(target, name) {
+					var ret = name in target ?
+						target[name] :
+						window[name];
+					if( !(name in target) && (ret instanceof Function))
+						ret = function(realFunc){
+							var args = [];
+							for (var i=0;(i+1)<arguments.length;i++) args[i]=arguments[i+1];
+							return realFunc.apply(this, args);
+						}.bind(window, ret);
+					return ret;
+				}.bind(window)
+			},
+			documentProxyHandler: {
+				get: function(target, name) {
+					if(name == 'body') return target;
+					var ret = name in target ?
+						target[name] :
+						document[name];
+					if( !(name in target) && (ret instanceof Function))
+						ret = function(realFunc){
+							var args = [];
+							for (var i=0;(i+1)<arguments.length;i++) args[i]=arguments[i+1];
+							return realFunc.apply(this, args);
+						}.bind(document, ret);
+					else if(ret instanceof Function)
+						ret = function(realFunc){
+							var args = [];
+							for (var i=0;(i+1)<arguments.length;i++) args[i]=arguments[i+1];
+							return realFunc.apply(this, args);
+						}.bind(target, ret);
+					return ret;
+				}.bind(document),
+				set: function(target, property, value){
+					var f = function(){
+						this[property] = value;
+					}.bind(target);
+					f();
+					return true;
+				}
 			},
 			Heap: class{
 				constructor(unorderedArray = null){
