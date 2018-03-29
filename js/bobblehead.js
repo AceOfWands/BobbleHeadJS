@@ -203,8 +203,8 @@ var bobblehead = (function(a){
 			}
 		},
 		PageContext: class{
-			constructor(){
-				return new Proxy(this, BobbleHead.Util.windowHandler);
+			constructor(domcontainer){
+				return new Sandbox(this, domcontainer);
 			}
 		},
 		InternalConnector: class{
@@ -531,9 +531,11 @@ var bobblehead = (function(a){
 							this.pageStack.push(this.currentPage);
 						if(page.lock)
 							this.pageStack = [];
-						this.currentPage = new BobbleHead.VirtualPage(page, data, resolve, reject);
+						var domcontainer = document.getElementById(this.container);
+						var pageContx = new BobbleHead.PageContext(domcontainer);
+						this.currentPage = new BobbleHead.VirtualPage(page, data, pageContx, resolve, reject);
 						this.checkVirtualPage(this.currentPage);
-						this.buildPageByObject(page, data, this.currentPage.context, resolve, reject);
+						this.buildPageByObject(page, data, pageContx, resolve, reject);
 					}else
 						reject(new BobbleHead.PageNotFoundException());
 				}.bind(this));
@@ -542,69 +544,57 @@ var bobblehead = (function(a){
 				this.checkPage(page);
 				var xhttp = new XMLHttpRequest();
 				xhttp.open("GET", page.path, true);
-				xhttp.onreadystatechange = function(data, pageContext, modulesToLoad, onSuccess, onFailure){
+				xhttp.onreadystatechange = function(data, sandbox, modulesToLoad, onSuccess, onFailure){
 					if(xhttp.readyState === XMLHttpRequest.DONE && xhttp.status === 404)
 						onFailure(new BobbleHead.PageNotFoundException());
 					else if(xhttp.readyState === XMLHttpRequest.DONE){
 						var context = BobbleHead.Context.getGlobal();
-						var domcontainer = document.getElementById(this.container);
-						var appContainer = new Proxy(domcontainer, BobbleHead.Util.documentProxyHandler);
+						var appContainer = document.getElementById(this.container);
 						appContainer.innerHTML = Mustache.render(xhttp.response,
 							{pageData: data, models: BobbleHead.ModelPool.getModels()});
 						
 						var js = appContainer.getElementsByTagName("script");
 						for(var i=0; i<js.length; i++){
 							if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
-								(function(window, document, scriptfile, nsync) {
-									if(nsync == 'true')
-										new Promise(function(resolve, reject){
-											var xhttp = new XMLHttpRequest();
-											xhttp.open('get', scriptfile, true);
-											xhttp.responseType = 'text';
-											xhttp.onreadystatechange = function(window, document){
-												if(xhttp.readyState === XMLHttpRequest.DONE){
-													try{
-														var globalScopeInit = '';
-														for(var x in window)
-															globalScopeInit += 'var '+x+' = window["'+x+'"];';
-														eval(globalScopeInit+xhttp.response);
-													}catch(e){
-														BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
-													}
-													resolve();
-												}
-											}.bind(window, window, document);
-											xhttp.send();
-										});		
-									else{
-										var xhttp = new XMLHttpRequest();
-										xhttp.open('get', scriptfile, false);
-										xhttp.onreadystatechange = function(window, document){
-											if(xhttp.readyState === XMLHttpRequest.DONE){
+								var scriptfile = js[i].getAttribute('src');
+								var nsync = js[i].getAttribute('async');
+								if(nsync == 'true')
+									new Promise(function(resolve, reject){
+										var xhttp2 = new XMLHttpRequest();
+										xhttp2.open('get', scriptfile, true);
+										xhttp2.responseType = 'text';
+										xhttp2.onreadystatechange = function(sandbox){
+											if(this.readyState === XMLHttpRequest.DONE){
 												try{
-													var globalScopeInit = '';
-													for(var x in window)
-														globalScopeInit += 'var '+x+' = window["'+x+'"];';
-													eval(globalScopeInit+xhttp.response);
+													sandbox.execCode(this.response);
 												}catch(e){
 													BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
 												}
+												resolve();
 											}
-										}.bind(window, window, document);
-										xhttp.send();
-									}
-								})(pageContext, appContainer, js[i].getAttribute('src'), js[i].getAttribute('async'));
+										}.bind(xhttp2,sandbox);
+										xhttp2.send();
+									});		
+								else{
+									var xhttp2 = new XMLHttpRequest();
+									xhttp2.open('get', scriptfile, false);
+									xhttp2.onreadystatechange = function(sandbox){
+										if(this.readyState === XMLHttpRequest.DONE){
+											try{
+												sandbox.execCode(this.response);
+											}catch(e){
+												BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
+											}
+										}
+									}.bind(xhttp2,sandbox);
+									xhttp2.send();
+								}
 							}else
-								(function(window, document, code) {
-									try{
-										var globalScopeInit = '';
-										for(var x in window)
-											globalScopeInit += 'var '+x+' = window["'+x+'"];';
-										eval(globalScopeInit+code);
-									}catch(e){
-										BobbleHead.log('Execution of script code', 3, e);
-									}
-								}.bind(pageContext))(pageContext, appContainer, js[i].textContent);
+								try{
+									pageContext.execCode(code);
+								}catch(e){
+									BobbleHead.log('Execution of script code', 3, e);
+								}
 								
 						}
 						var a = appContainer.getElementsByTagName("a");
@@ -708,10 +698,10 @@ var bobblehead = (function(a){
 			}
 		},
 		VirtualPage: class{
-			constructor(page, data, success, fail){
+			constructor(page, data, context, success, fail){
 				this.page = page;
 				this.data = data;
-				this.context = new BobbleHead.PageContext();
+				this.context = context;
 				this.success = success;
 				this.fail = fail;
 			}
