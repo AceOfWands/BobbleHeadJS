@@ -544,7 +544,7 @@ var bobblehead = (function(a){
 				this.checkPage(page);
 				var xhttp = new XMLHttpRequest();
 				xhttp.open("GET", page.path, true);
-				xhttp.onreadystatechange = function(data, sandbox, modulesToLoad, onSuccess, onFailure){
+				xhttp.onreadystatechange = async function(data, sandbox, modulesToLoad, onSuccess, onFailure){
 					if(xhttp.readyState === XMLHttpRequest.DONE && xhttp.status === 404)
 						onFailure(new BobbleHead.PageNotFoundException());
 					else if(xhttp.readyState === XMLHttpRequest.DONE){
@@ -554,30 +554,17 @@ var bobblehead = (function(a){
 							{pageData: data, models: BobbleHead.ModelPool.getModels()});
 						
 						var js = appContainer.getElementsByTagName("script");
+						var lastscript = null;
 						for(var i=0; i<js.length; i++){
 							if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
 								var scriptfile = js[i].getAttribute('src');
 								var nsync = js[i].getAttribute('async');
-								if(nsync == 'true')
-									new Promise(function(resolve, reject){
-										var xhttp2 = new XMLHttpRequest();
-										xhttp2.open('get', scriptfile, true);
-										xhttp2.responseType = 'text';
-										xhttp2.onreadystatechange = function(sandbox){
-											if(this.readyState === XMLHttpRequest.DONE){
-												try{
-													sandbox.execCode(this.response);
-												}catch(e){
-													BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
-												}
-												resolve();
-											}
-										}.bind(xhttp2,sandbox);
-										xhttp2.send();
-									});		
-								else{
+								if(nsync != 'true' && lastscript != null)
+									await lastscript;
+								var scriptprom = new Promise(function(resolve, reject){
 									var xhttp2 = new XMLHttpRequest();
-									xhttp2.open('get', scriptfile, false);
+									xhttp2.open('get', scriptfile, true);
+									xhttp2.responseType = 'text';
 									xhttp2.onreadystatechange = function(sandbox){
 										if(this.readyState === XMLHttpRequest.DONE){
 											try{
@@ -585,10 +572,13 @@ var bobblehead = (function(a){
 											}catch(e){
 												BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
 											}
+											resolve();
 										}
 									}.bind(xhttp2,sandbox);
 									xhttp2.send();
-								}
+								});
+								if(nsync != 'true')
+									lastscript = scriptprom;
 							}else
 								try{
 									pageContext.execCode(code);
@@ -626,8 +616,12 @@ var bobblehead = (function(a){
 							if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
 								for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
 									e.setAttribute('bbh-manipulating','true');
-									modpromises.append(mod.manipulate(context.clone(), e));
-									e.setAttribute('bbh-manipulating','false');
+									var sand = new Sandbox(e, context.clone());
+									var modpromise = sand.execFunction(mod.manipulate, [], mod);
+									modpromise.then(function(){
+										e.setAttribute('bbh-manipulating','false');
+									});
+									modpromises.push(modpromise);
 								}
 						}
 						Promise.all(modpromises).then(function(){
@@ -674,10 +668,10 @@ var bobblehead = (function(a){
 			getController(name){
 				return this.__controllers[name];
 			}
-			init(context, configuration){
+			init(configuration){
 				this.configuration = configuration;
 			}
-			manipulate(context, dom){}
+			manipulate(){}
 		},
 		ModulePool: class{
 			static *getModules(){
@@ -740,6 +734,7 @@ var bobblehead = (function(a){
 					var temp_configuration = conf.getElementsByTagName('configuration')[0];
 					var hold_conf = {};
 					hold_conf.container = (temp_configuration.getElementsByTagName('container')[0]).textContent;
+					hold_conf.base_url = (temp_configuration.getElementsByTagName('base_url')[0]).textContent;
 					var pageBuilder_conf = (temp_configuration.getElementsByTagName('pageBuilder')[0]);
 					var cache_whitelist = [];
 					var cache_blacklist = [];
@@ -787,6 +782,8 @@ var bobblehead = (function(a){
 					var globalContext = BobbleHead.Context.getGlobal();
 					if(module_container){
 						var modules_path = module_container.getAttribute('path');
+						if(!modules_path.startsWith(hold_conf.base_url))
+							modules_path = BobbleHead.Util.absoluteURL(hold_conf.base_url, modules_path);
 						for( var m of module_container.getElementsByTagName('module')){
 							if(m.getAttribute('enabled') == 'true'){
 								var hold_mconf = {};
@@ -804,7 +801,9 @@ var bobblehead = (function(a){
 											script.onload = function(modules, configuration, callback){
 												while(modules.length>0){
 													var sm = modules.shift();
-													sm.init(globalContext.clone(), configuration);
+													var sandbox = new Sandbox(document, globalContext.clone());
+													sandbox.execFunction(sm.init, [configuration], sm);
+													BobbleHead.ModulePool.addModule(sm);
 												}
 												callback();
 											}.bind(script, this.moduleOnLoad, confModule, resolve);
@@ -966,47 +965,20 @@ var bobblehead = (function(a){
 				}
 				return curr;
 			},
-			windowHandler: {
-				get: function(target, name) {
-					var ret = name in target ?
-						target[name] :
-						window[name];
-					if( !(name in target) && (ret instanceof Function))
-						ret = function(realFunc){
-							var args = [];
-							for (var i=0;(i+1)<arguments.length;i++) args[i]=arguments[i+1];
-							return realFunc.apply(this, args);
-						}.bind(window, ret);
-					return ret;
-				}.bind(window)
-			},
-			documentProxyHandler: {
-				get: function(target, name) {
-					if(name == 'body') return target;
-					var ret = name in target ?
-						target[name] :
-						document[name];
-					if( !(name in target) && (ret instanceof Function))
-						ret = function(realFunc){
-							var args = [];
-							for (var i=0;(i+1)<arguments.length;i++) args[i]=arguments[i+1];
-							return realFunc.apply(this, args);
-						}.bind(document, ret);
-					else if(ret instanceof Function)
-						ret = function(realFunc){
-							var args = [];
-							for (var i=0;(i+1)<arguments.length;i++) args[i]=arguments[i+1];
-							return realFunc.apply(this, args);
-						}.bind(target, ret);
-					return ret;
-				}.bind(document),
-				set: function(target, property, value){
-					var f = function(){
-						this[property] = value;
-					}.bind(target);
-					f();
-					return true;
+			absoluteURL: function(base, relative) {
+				var stack = base.split("/"),
+					parts = relative.split("/");
+				stack.pop(); // remove current file name (or empty string)
+							 // (omit if "base" is the current folder without trailing slash)
+				for (var i=0; i<parts.length; i++) {
+					if (parts[i] == ".")
+						continue;
+					if (parts[i] == "..")
+						stack.pop();
+					else
+						stack.push(parts[i]);
 				}
+				return stack.join("/");
 			},
 			Heap: class{
 				constructor(unorderedArray = null){
