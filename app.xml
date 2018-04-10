@@ -1,5 +1,6 @@
 <configuration>
 	<version>0.0.1</version>
+	<base_url>http://localhost/BobbleHeadCMS/</base_url>
 	<container>app-content</container>
 	<pages path="./pages/">
 		<index vid="1">
@@ -7,7 +8,7 @@
 				<test>Success</test>
 			</data>
 		</index>
-		<page vid="1" noback="1" modulesAllowed="" path="test.html">
+		<page vid="1" noback="1" modulesAllowed="test" path="test.html">
 			<configuration>
 				<test>123</test>
 			</configuration>
@@ -15,6 +16,11 @@
 	</pages>
 	<modules path="./modules/">
 		<module path="restwadl/main.js" enabled="true">
+			<configuration>
+				<test>123456</test>
+			</configuration>
+		</module>
+		<module path="test/main.js" enabled="true">
 			<configuration>
 				<test>123456</test>
 			</configuration>
