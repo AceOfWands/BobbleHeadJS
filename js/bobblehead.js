@@ -581,7 +581,7 @@ var bobblehead = (function(a){
 									lastscript = scriptprom;
 							}else
 								try{
-									pageContext.execCode(code);
+									pageContext.execCode(js[i].innerHTML);
 								}catch(e){
 									BobbleHead.log('Execution of script code', 3, e);
 								}
