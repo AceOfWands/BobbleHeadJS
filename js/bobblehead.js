@@ -204,7 +204,7 @@ var bobblehead = (function(a){
 		},
 		PageContext: class{
 			constructor(domcontainer){
-				return new Sandbox(this, domcontainer);
+				return new Sandbox(domcontainer, this);
 			}
 		},
 		InternalConnector: class{
