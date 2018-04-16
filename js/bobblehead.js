@@ -802,7 +802,7 @@ var bobblehead = (function(a){
 												while(modules.length>0){
 													var sm = modules.shift();
 													var sandbox = new Sandbox(document, globalContext.clone());
-													sandbox.execFunction(sm.init, [configuration], sm);
+													sandbox.execMethod('init', [configuration], sm);
 													BobbleHead.ModulePool.addModule(sm);
 												}
 												callback();
