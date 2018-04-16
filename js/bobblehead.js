@@ -836,7 +836,7 @@ var bobblehead = (function(a){
 						globalContext.pageBuilder.container = hold_conf.container;
 						var defaultConnector_conf = (temp_configuration.getElementsByTagName('defaultConnector')[0]);
 						if(defaultConnector_conf){
-							defaultConnector_conf = defaultConnector_conf.textContent;
+							defaultConnector_conf = defaultConnector_conf.textContent || 'BobbleHead.GenericConnector';
 							try{
 								globalContext.defaultConnector = new (BobbleHead.Util.getClassFromName(defaultConnector_conf))();
 							}catch(e){
@@ -848,9 +848,9 @@ var bobblehead = (function(a){
 						var accessController_conf = (temp_configuration.getElementsByTagName('accessController')[0]);
 						var accesscontroller_promise = null;
 						if(accessController_conf){
-							accessController_conf = accessController_conf.textContent;
+							var accessController_conf_name = accessController_conf.textContent || 'BobbleHead.AccessController';
 							try{
-								globalContext.accessController = new (BobbleHead.Util.getClassFromName(accessController_conf)());
+								globalContext.accessController = new (BobbleHead.Util.getClassFromName(accessController_conf_name))();
 							accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method'));
 							}catch(e){
 								BobbleHead.log(e);
