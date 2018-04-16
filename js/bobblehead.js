@@ -783,7 +783,7 @@ var bobblehead = (function(a){
 					if(module_container){
 						var modules_path = module_container.getAttribute('path');
 						if(!modules_path.startsWith(hold_conf.base_url))
-							modules_path = BobbleHead.Util.absoluteURL(hold_conf.base_url, modules_path);
+							modules_path = BobbleHead.Util.absoluteURL(hold_conf.base_url, modules_path, false);
 						for( var m of module_container.getElementsByTagName('module')){
 							if(m.getAttribute('enabled') == 'true'){
 								var hold_mconf = {};
@@ -965,11 +965,12 @@ var bobblehead = (function(a){
 				}
 				return curr;
 			},
-			absoluteURL: function(base, relative) {
+			absoluteURL: function(base, relative, trailingSlash = true) {
 				var stack = base.split("/"),
 					parts = relative.split("/");
-				stack.pop(); // remove current file name (or empty string)
-							 // (omit if "base" is the current folder without trailing slash)
+				if(trailingSlash)
+					stack.pop(); // remove current file name (or empty string)
+								 // (omit if "base" is the current folder without trailing slash)
 				for (var i=0; i<parts.length; i++) {
 					if (parts[i] == ".")
 						continue;
