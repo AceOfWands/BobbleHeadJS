@@ -626,6 +626,7 @@ var bobblehead = (function(a){
 						}
 						Promise.all(modpromises).then(function(){
 							document.dispatchEvent(new BobbleHead.PageReadyEvent());
+							appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
 							onSuccess();
 						});
 						
