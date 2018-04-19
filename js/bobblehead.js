@@ -861,6 +861,7 @@ var bobblehead = (function(a){
 							globalContext.accessController = new BobbleHead.AccessController();
 							accesscontroller_promise = globalContext.accessController.init('none');
 						}
+						globalContext.localDatabase = BobbleHead.Database.getInstance();
 						accesscontroller_promise.then(function(){
 							for(var sm of BobbleHead.ModulePool.getModules()){
 								var sandbox = new Sandbox(document, globalContext.clone());
