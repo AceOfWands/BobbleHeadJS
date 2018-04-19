@@ -780,11 +780,11 @@ var bobblehead = (function(a){
 					}
 					var module_container = temp_configuration.getElementsByTagName('modules')[0];
 					var current_promise = null;
-					var globalContext = BobbleHead.Context.getGlobal();
 					if(module_container){
 						var modules_path = module_container.getAttribute('path');
 						if(!modules_path.startsWith(hold_conf.base_url))
 							modules_path = BobbleHead.Util.absoluteURL(hold_conf.base_url, modules_path, false);
+						var moduleConfs = {};
 						for( var m of module_container.getElementsByTagName('module')){
 							if(m.getAttribute('enabled') == 'true'){
 								var hold_mconf = {};
@@ -802,8 +802,7 @@ var bobblehead = (function(a){
 											script.onload = function(modules, configuration, callback){
 												while(modules.length>0){
 													var sm = modules.shift();
-													var sandbox = new Sandbox(document, globalContext.clone());
-													sandbox.execMethod('init', [configuration], sm);
+													moduleConfs[sm.name] = configuration;
 													BobbleHead.ModulePool.addModule(sm);
 												}
 												callback();
@@ -863,6 +862,10 @@ var bobblehead = (function(a){
 							accesscontroller_promise = globalContext.accessController.init('none');
 						}
 						accesscontroller_promise.then(function(){
+							for(var sm of BobbleHead.ModulePool.getModules()){
+								var sandbox = new Sandbox(document, globalContext.clone());
+								sandbox.execMethod('init', [moduleConfs[sm.name]], sm);
+							}
 							if(pages_index){
 								hold_conf.index = parseInt(pages_index.getAttribute('vid'));
 								var index_data = null;
