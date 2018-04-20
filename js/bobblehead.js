@@ -61,7 +61,10 @@ var bobblehead = (function(a){
 			constructor(method,uri,data,headers = {}){
 				this.method = method;
 				this.uri = uri;
-				this.data = (data instanceof FormData) ? data : null;
+				if(data instanceof FormData)
+					this.setData(data)
+				else
+					this.data = null;
 				this.headers = headers;			
 			}
 			setHeader(a,b = null){
@@ -70,16 +73,24 @@ var bobblehead = (function(a){
 				this.headers[a] = b;
 			}
 			setData(a,b = null){
-				if(a instanceof FormData)
-					this.data = data;
-				else if(b != null && (a instanceof String)){
+				if(a instanceof FormData){
+					this.data = {};
+					for(var x of a.entries())
+						this.data[x[0]] = x[1];
+				}else if(b != null && (a instanceof String)){
+					/*if(this._data == null)
+						this._data = new FormData();
+					this._data.set(a,b);*/
 					if(this.data == null)
-						this.data = new FormData();
-					this.data.set(a,b);
+						this.data = {};
+					this.data[a] = b;
 				}
 			}
 			getData(){
-				return this.data;
+				var r = new FormData();
+				for(var x in this.data)
+					r.append(x, this.data[x]);
+				return r;
 			}
 			getMethod(){
 				return this.method;
@@ -97,7 +108,9 @@ var bobblehead = (function(a){
 				if(!(x instanceof BobbleHead.Request)) return false;
 				if(this.method != x.getMethod()) return false;
 				if(this.uri != x.getUri()) return false;
-				if(JSON.stringify(this.data) != JSON.stringify(x.getData())) return false;
+				var xData = x.data;
+				for(var i in this.data)
+					if(this.data[i] != xData[i]) return false;
 				return true;
 			}
 		},
@@ -227,7 +240,7 @@ var bobblehead = (function(a){
 									if(vid_str == 'back')
 										context.pageBuilder.pageBack();
 									else
-										context.pageBuilder.buildPage(parseInt(vid_str),request.data).then(resolve).catch(reject);
+										context.pageBuilder.buildPage(parseInt(vid_str),request.getData()).then(resolve).catch(reject);
 								}
 							}else if(subUri.startsWith('module/')){
 								var subSubUri = subUri.substring(7);
@@ -247,7 +260,7 @@ var bobblehead = (function(a){
 									controllerName = subSubSubUri;
 								var controllr = module.getController(controllerName);
 								if(controllr!=null)
-									controllr(request.data, resolve, reject);
+									controllr(request.getData(), resolve, reject);
 								else
 									reject(new BobbleHead.Exceptions.ControllerNotFoundException());
 							}
@@ -358,9 +371,9 @@ var bobblehead = (function(a){
 				return new Promise(function(resolve, reject) {
 					var xhttp = new XMLHttpRequest();
 					var url = encodeURI(request.uri);
-					if(request.method == 'get' && request.data != null){
+					if(request.method == 'get' && request.getData() != null){
 						var _param = '';
-						for (var pair of request.data.entries()) {
+						for (var pair of request.getData().entries()) {
 							if(pair[0]&&(pair[1] || pair[1]===0))
 								_param += pair[0]+'='+pair[1].toString().trim()+'&';
 						}
