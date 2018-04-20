@@ -358,7 +358,7 @@ var bobblehead = (function(a){
 				return new Promise(function(resolve, reject) {
 					var xhttp = new XMLHttpRequest();
 					var url = encodeURI(request.uri);
-					if(request.method == 'get' && params){
+					if(request.method == 'get' && request.data != null){
 						var _param = '';
 						for (var pair of request.data.entries()) {
 							if(pair[0]&&(pair[1] || pair[1]===0))
@@ -423,9 +423,7 @@ var bobblehead = (function(a){
 						connector = BobbleHead.ExternalConnector.getInstance();
 					}
 					connector.doRequest(request).then(resolve).catch(reject);
-				}).catch(function(e) {
-					BobbleHead.log(e);
-				});
+				}).then(onSuccess).catch(onFailure);
 			}
 		},
 		Cacher: class{
@@ -442,6 +440,23 @@ var bobblehead = (function(a){
 						
 						db.get('cacheHeap').then(function(cacheHeap) {
 							if(cacheHeap){
+								var holdNodeArray = [];
+								for(var i in cacheHeap.array){
+									var _val = (cacheHeap.array[i]).value;
+									var form_data = null;
+									if(_val.data != null){
+										form_data = new FormData();
+										for(var key in _val.data){
+											form_data.append(key, _val.data[key]);
+										}
+									}
+									var val = new BobbleHead.Request(_val.method,_val.uri,form_data,_val.headers);
+									holdNodeArray.push(new BobbleHead.Util.HeapNode((cacheHeap.array[i]).key, val));
+								}
+								var rev = cacheHeap._rev;
+								cacheHeap = new BobbleHead.Util.ReverseHeap(holdNodeArray);
+								cacheHeap._id = 'cacheHeap';
+								cacheHeap._rev = rev;
 								var hold = cacheHeap.getFirst();
 								if(hold!=null){
 									var red = hold.getKey()-1;
@@ -505,6 +520,12 @@ var bobblehead = (function(a){
 						if(BobbleHead.Cacher.whitelist.indexOf(request.uri) == -1){
 							var node = new BobbleHead.Util.HeapNode(1,request);
 							BobbleHead.Cacher.cacheHeap.addNode(node);
+							db.put(BobbleHead.Cacher.cacheHeap,{rev: true}).then(function (response) {
+								BobbleHead.Cacher.cacheHeap._rev = response.rev;
+								BobbleHead.log('Saved Cacher heap', 0, response);
+							}).catch(function (err) {
+								BobbleHead.log('Cannot save Cacher heap', 1, err);
+							});
 						}
 						if(!BobbleHead.Cacher.cacheMap[request.method])
 							BobbleHead.Cacher.cacheMap[request.method] = {};
