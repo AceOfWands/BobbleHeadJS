@@ -255,6 +255,8 @@ var bobblehead = (function(a){
 							reject(e);
 						}
 					}
+				}).catch(function(e) {
+					BobbleHead.log(e);
 				});
 			}
 		},
@@ -303,7 +305,7 @@ var bobblehead = (function(a){
 					this.currentAuthMethod = BobbleHead.AuthenticationMethods.getMethod(authType) ||
 						BobbleHead.AuthenticationMethods.getMethod('none');
 					if(!(this.currentAuthMethod instanceof BobbleHead.AuthenticationMethod))
-						throw new BobbleHead.Exceptions.InvalidAuthenticationMethod();
+						throw new BobbleHead.Exceptions.InvalidAuthenticationMethodException();
 					var db = BobbleHead.Database.getInstance();
 					this.controllerData = {};
 					db.get('session').then(function(session) {
@@ -318,7 +320,9 @@ var bobblehead = (function(a){
 						document.dispatchEvent(new BobbleHead.AccessControllerLoadedEvent());
 						resolve();
 					}.bind(this));
-				}.bind(this));
+				}.bind(this)).catch(function(e) {
+					BobbleHead.log(e);
+				});
 			}
 		},
 		AuthenticationMethod: class{
@@ -401,6 +405,8 @@ var bobblehead = (function(a){
 						}
 					};
 					xhttp.send(request.getData());
+				}).catch(function(e) {
+					BobbleHead.log(e);
 				});
 			}
 		},
@@ -417,6 +423,8 @@ var bobblehead = (function(a){
 						connector = BobbleHead.ExternalConnector.getInstance();
 					}
 					connector.doRequest(request).then(resolve).catch(reject);
+				}).catch(function(e) {
+					BobbleHead.log(e);
 				});
 			}
 		},
@@ -461,7 +469,9 @@ var bobblehead = (function(a){
 					BobbleHead.Cacher.whitelist = whitelist;
 					BobbleHead.Cacher.blacklist = blacklist;
 					BobbleHead.Cacher.maxCached = maxcached;
-				}.bind(this));
+				}.bind(this)).catch(function(e) {
+					BobbleHead.log(e);
+				});
 			}
 			static cache(request, response){
 				if(BobbleHead.Cacher.blacklist.indexOf(request.uri) == -1){
@@ -541,101 +551,114 @@ var bobblehead = (function(a){
 						this.buildPageByObject(page, data, pageContx, resolve, reject);
 					}else
 						reject(new BobbleHead.Exceptions.PageNotFoundException());
-				}.bind(this));
+				}.bind(this)).catch(function(e) {
+					BobbleHead.log(e);
+				});
 			}
 			buildPageByObject(page, data, pageContext, onSuccess = BobbleHead.defaultCallback, onFailure = BobbleHead.defaultCallback){
-				this.checkPage(page);
-				var xhttp = new XMLHttpRequest();
-				xhttp.open("GET", page.path, true);
-				xhttp.onreadystatechange = async function(data, sandbox, modulesToLoad, onSuccess, onFailure){
-					if(xhttp.readyState === XMLHttpRequest.DONE && xhttp.status === 404)
-						onFailure(new BobbleHead.Exceptions.PageNotFoundException());
-					else if(xhttp.readyState === XMLHttpRequest.DONE){
-						var context = BobbleHead.Context.getGlobal();
-						var appContainer = document.getElementById(this.container);
-						appContainer.innerHTML = Mustache.render(xhttp.response,
-							{pageData: data, models: BobbleHead.ModelPool.getModels()});
-						
-						var js = appContainer.getElementsByTagName("script");
-						var lastscript = null;
-						for(var i=0; i<js.length; i++){
-							if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
-								var scriptfile = js[i].getAttribute('src');
-								var nsync = js[i].getAttribute('async');
-								if(nsync != 'true' && lastscript != null)
-									await lastscript;
-								var scriptprom = new Promise(function(resolve, reject){
-									var xhttp2 = new XMLHttpRequest();
-									xhttp2.open('get', scriptfile, true);
-									xhttp2.responseType = 'text';
-									xhttp2.onreadystatechange = function(sandbox){
-										if(this.readyState === XMLHttpRequest.DONE){
-											try{
-												sandbox.execCode(this.response);
-											}catch(e){
-												BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
+				try{
+					this.checkPage(page);
+					var xhttp = new XMLHttpRequest();
+					xhttp.open("GET", page.path, true);
+					xhttp.onreadystatechange = async function(data, sandbox, modulesToLoad, onSuccess, onFailure){
+						if(xhttp.readyState === XMLHttpRequest.DONE && xhttp.status === 404)
+							onFailure(new BobbleHead.Exceptions.PageNotFoundException());
+						else if(xhttp.readyState === XMLHttpRequest.DONE){
+							var context = BobbleHead.Context.getGlobal();
+							var appContainer = document.getElementById(this.container);
+							appContainer.innerHTML = Mustache.render(xhttp.response,
+								{pageData: data, models: BobbleHead.ModelPool.getModels()});
+							
+							var js = appContainer.getElementsByTagName("script");
+							var lastscript = null;
+							for(var i=0; i<js.length; i++){
+								if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
+									var scriptfile = js[i].getAttribute('src');
+									var nsync = js[i].getAttribute('async');
+									if(nsync != 'true' && lastscript != null)
+										await lastscript;
+									var scriptprom = new Promise(function(resolve, reject){
+										var xhttp2 = new XMLHttpRequest();
+										xhttp2.open('get', scriptfile, true);
+										xhttp2.responseType = 'text';
+										xhttp2.onreadystatechange = function(sandbox){
+											if(this.readyState === XMLHttpRequest.DONE){
+												try{
+													sandbox.execCode(this.response);
+												}catch(e){
+													BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
+												}
+												resolve();
 											}
-											resolve();
-										}
-									}.bind(xhttp2,sandbox);
-									xhttp2.send();
-								});
-								if(nsync != 'true')
-									lastscript = scriptprom;
-							}else
-								try{
-									pageContext.execCode(js[i].innerHTML);
-								}catch(e){
-									BobbleHead.log('Execution of script code', 3, e);
-								}
-								
-						}
-						var a = appContainer.getElementsByTagName("a");
-						for(var i=0; i<a.length; i++){
-							if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
-								a[i].onclick = function(connector){
-									var req = new BobbleHead.Request('GET', this.getAttribute('href'), null); //TODO: data-*
-									connector.request(req);
-								}.bind(a[i],context.defaultConnector);
-						}
-						var f = appContainer.getElementsByTagName("form");
-						for(var i=0; i<f.length; i++){
-							if(!f[i].hasAttribute('bbh-ignore')){
-								f[i].submit = function(connector){
-									for(var e of this.querySelectorAll('[name]')){
-										if(!e.checkValidity()){
-											e.reportValidity();
-											return;
-										}
-									}
-									var data = new FormData(this);
-									var req = new BobbleHead.Request(this.getAttribute('method'), this.getAttribute('action'), data);
-									connector.request(req);
-								}.bind(f[i],context.defaultConnector);
-							}
-						}
-						var modpromises = [];
-						for(var mod of BobbleHead.ModulePool.getModules()){
-							if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
-								for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
-									e.setAttribute('bbh-manipulating','true');
-									var sand = new Sandbox(e, context.clone());
-									var modpromise = sand.execFunction(mod.manipulate, [], mod);
-									modpromise.then(function(){
-										e.setAttribute('bbh-manipulating','false');
+										}.bind(xhttp2,sandbox);
+										xhttp2.send();
+									}).catch(function(e) {
+										BobbleHead.log(e);
 									});
-									modpromises.push(modpromise);
+									if(nsync != 'true')
+										lastscript = scriptprom;
+								}else
+									try{
+										pageContext.execCode(js[i].innerHTML);
+									}catch(e){
+										BobbleHead.log('Execution of script code', 3, e);
+									}
+									
+							}
+							var a = appContainer.getElementsByTagName("a");
+							for(var i=0; i<a.length; i++){
+								if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
+									a[i].onclick = function(connector){
+										var req = new BobbleHead.Request('GET', this.getAttribute('href'), null); //TODO: data-*
+										connector.request(req);
+									}.bind(a[i],context.defaultConnector);
+							}
+							var f = appContainer.getElementsByTagName("form");
+							for(var i=0; i<f.length; i++){
+								if(!f[i].hasAttribute('bbh-ignore')){
+									f[i].submit = function(connector){
+										for(var e of this.querySelectorAll('[name]')){
+											if(!e.checkValidity()){
+												e.reportValidity();
+												return;
+											}
+										}
+										var data = new FormData(this);
+										var req = new BobbleHead.Request(this.getAttribute('method'), this.getAttribute('action'), data);
+										connector.request(req);
+									}.bind(f[i],context.defaultConnector);
 								}
+							}
+							var modpromises = [];
+							for(var mod of BobbleHead.ModulePool.getModules()){
+								if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
+									for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
+										e.setAttribute('bbh-manipulating','true');
+										var sand = new Sandbox(e, context.clone());
+										var modpromise = sand.execFunction(mod.manipulate, [], mod);
+										modpromise.then(function(){
+											e.setAttribute('bbh-manipulating','false');
+										});
+										modpromises.push(modpromise);
+									}
+							}
+							Promise.all(modpromises).then(function(){
+								document.dispatchEvent(new BobbleHead.PageReadyEvent());
+								appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
+								onSuccess();
+							});
+							
 						}
-						Promise.all(modpromises).then(function(){
-							document.dispatchEvent(new BobbleHead.PageReadyEvent());
-							appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
-							onSuccess();
-						});
-						
-					}
-				}.bind(this, data, pageContext, page.modules, onSuccess, onFailure);
-				xhttp.send(null);
+					}.bind(this, data, pageContext, page.modules, onSuccess, onFailure);
+					xhttp.send(null);
+				}catch(e){
+					onFailure(e);
+					if(e instanceof BobbleHead.Exceptions.RedirectException)
+						if(e.vid == -1)
+							this.pageBack();
+						else
+							this.buildPage(e.vid, e.data);
+				}
 			}
 			pageBack(){
 				var vpage = this.pageStack.pop();
@@ -817,7 +840,9 @@ var bobblehead = (function(a){
 										else
 											mod_load_func(confModule, resolve);
 									}.bind(this, confModule, current_promise)
-								);
+								).catch(function(e) {
+									BobbleHead.log(e);
+								});
 							}
 						}
 					}
@@ -1174,11 +1199,18 @@ var bobblehead = (function(a){
 	BobbleHead.AuthenticationMethods.addMethod('basic',BobbleHead.AuthenticationMethods.BasicAuthentication);
 	//Exception
 	BobbleHead.Exceptions.PageNotFoundException = class extends BobbleHead.Exceptions.FrameworkException{};
+	BobbleHead.Exceptions.RedirectException = class extends BobbleHead.Exceptions.FrameworkException{
+		constructor(vid, data = null){
+			super();
+			this.vid = vid;
+			this.data = data;
+		}
+	};
 	BobbleHead.Exceptions.NotSupportedException = class extends BobbleHead.Exceptions.FrameworkException{};
 	BobbleHead.Exceptions.UnauthorizedException = class extends BobbleHead.Exceptions.FrameworkException{};
 	BobbleHead.Exceptions.InvalidRouteException = class extends BobbleHead.Exceptions.FrameworkException{};
 	BobbleHead.Exceptions.ControllerNotFoundException = class extends BobbleHead.Exceptions.FrameworkException{};
-	BobbleHead.Exceptions.InvalidAuthenticationMethod = class extends BobbleHead.Exceptions.FrameworkException{};
+	BobbleHead.Exceptions.InvalidAuthenticationMethodException = class extends BobbleHead.Exceptions.FrameworkException{};
 	//Events
 	BobbleHead.CacherLoadedEvent = class extends BobbleHead.FrameworkEvent{
 		constructor(data = null){
