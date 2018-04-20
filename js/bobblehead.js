@@ -165,7 +165,7 @@ var bobblehead = (function(a){
 							return _match;
 					}.bind(argMap));
 				}else
-					throw new BobbleHead.InvalidRouteException();
+					throw new BobbleHead.Exceptions.InvalidRouteException();
 			}
 			match(uri){
 				return this.uri1.test(uri);
@@ -249,7 +249,7 @@ var bobblehead = (function(a){
 								if(controllr!=null)
 									controllr(request.data, resolve, reject);
 								else
-									reject(new BobbleHead.ControllerNotFoundException());
+									reject(new BobbleHead.Exceptions.ControllerNotFoundException());
 							}
 						}catch(e){
 							reject(e);
@@ -300,8 +300,10 @@ var bobblehead = (function(a){
 			}
 			init(authType = 'none'){
 				return new Promise(function(resolve, reject){
-					this.currentAuthMethod = new (BobbleHead.AuthenticationMethods.getMethod(authType) ||
-						BobbleHead.AuthenticationMethods.NoneAuthentication)();
+					this.currentAuthMethod = BobbleHead.AuthenticationMethods.getMethod(authType) ||
+						BobbleHead.AuthenticationMethods.getMethod('none');
+					if(!(this.currentAuthMethod instanceof BobbleHead.AuthenticationMethod))
+						throw new BobbleHead.Exceptions.InvalidAuthenticationMethod();
 					var db = BobbleHead.Database.getInstance();
 					this.controllerData = {};
 					db.get('session').then(function(session) {
@@ -334,11 +336,12 @@ var bobblehead = (function(a){
 			}
 		},
 		AuthenticationMethods: class{
-			static addMethod(name, method){
-				BobbleHead.AuthenticationMethods.methods[name] = method;
+			static addMethod(name, method, args = null){
+				BobbleHead.AuthenticationMethods.methods[name] = [method, args];
 			}
 			static getMethod(name){
-				return BobbleHead.AuthenticationMethods.methods[name] || null;
+				var retrive = BobbleHead.AuthenticationMethods.methods[name];
+				return (retrive) ? (new (BobbleHead.Util.execFuncWithArgList(retrive[0], retrive[1]))()) : null;
 			}
 		},
 		ExternalConnector: class{
@@ -537,7 +540,7 @@ var bobblehead = (function(a){
 						this.checkVirtualPage(this.currentPage);
 						this.buildPageByObject(page, data, pageContx, resolve, reject);
 					}else
-						reject(new BobbleHead.PageNotFoundException());
+						reject(new BobbleHead.Exceptions.PageNotFoundException());
 				}.bind(this));
 			}
 			buildPageByObject(page, data, pageContext, onSuccess = BobbleHead.defaultCallback, onFailure = BobbleHead.defaultCallback){
@@ -546,7 +549,7 @@ var bobblehead = (function(a){
 				xhttp.open("GET", page.path, true);
 				xhttp.onreadystatechange = async function(data, sandbox, modulesToLoad, onSuccess, onFailure){
 					if(xhttp.readyState === XMLHttpRequest.DONE && xhttp.status === 404)
-						onFailure(new BobbleHead.PageNotFoundException());
+						onFailure(new BobbleHead.Exceptions.PageNotFoundException());
 					else if(xhttp.readyState === XMLHttpRequest.DONE){
 						var context = BobbleHead.Context.getGlobal();
 						var appContainer = document.getElementById(this.container);
@@ -640,7 +643,7 @@ var bobblehead = (function(a){
 					this.checkVirtualPage(vpage);
 					this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
 				}else
-					throw new BobbleHead.PageNotFoundException();
+					throw new BobbleHead.Exceptions.PageNotFoundException();
 			}
 		},
 		PageFactory: {
@@ -941,10 +944,12 @@ var bobblehead = (function(a){
 			if(arguments.length>0)
 				BobbleHead.log(arguments);
 		},
-		FrameworkException: class{
-			constructor(message){
-				this.name = 'FrameworkException';
-				this.message = message;
+		Exceptions: {
+			FrameworkException: class{
+				constructor(message){
+					this.name = 'FrameworkException';
+					this.message = message;
+				}
 			}
 		},
 		FrameworkEvent: class extends Event{},
@@ -985,6 +990,10 @@ var bobblehead = (function(a){
 						stack.push(parts[i]);
 				}
 				return stack.join("/");
+			},
+			execFuncWithArgList: function(f, args) {
+				var params = [f].concat(args);
+				return f.bind.apply(f, params);
 			},
 			Heap: class{
 				constructor(unorderedArray = null){
@@ -1155,20 +1164,21 @@ var bobblehead = (function(a){
 							flag = true;
 					}
 					if(!flag){
-						throw new BobbleHead.UnauthorizedException();
+						throw new BobbleHead.Exceptions.UnauthorizedException();
 					}
 				}else if(page.roles.length>0)
-					throw new BobbleHead.UnauthorizedException();
+					throw new BobbleHead.Exceptions.UnauthorizedException();
 			}
 		}
 	};
 	BobbleHead.AuthenticationMethods.addMethod('basic',BobbleHead.AuthenticationMethods.BasicAuthentication);
 	//Exception
-	BobbleHead.PageNotFoundException = class extends BobbleHead.FrameworkException{};
-	BobbleHead.NotSupportedException = class extends BobbleHead.FrameworkException{};
-	BobbleHead.UnauthorizedException = class extends BobbleHead.FrameworkException{};
-	BobbleHead.InvalidRouteException = class extends BobbleHead.FrameworkException{};
-	BobbleHead.ControllerNotFoundException = class extends BobbleHead.FrameworkException{};
+	BobbleHead.Exceptions.PageNotFoundException = class extends BobbleHead.Exceptions.FrameworkException{};
+	BobbleHead.Exceptions.NotSupportedException = class extends BobbleHead.Exceptions.FrameworkException{};
+	BobbleHead.Exceptions.UnauthorizedException = class extends BobbleHead.Exceptions.FrameworkException{};
+	BobbleHead.Exceptions.InvalidRouteException = class extends BobbleHead.Exceptions.FrameworkException{};
+	BobbleHead.Exceptions.ControllerNotFoundException = class extends BobbleHead.Exceptions.FrameworkException{};
+	BobbleHead.Exceptions.InvalidAuthenticationMethod = class extends BobbleHead.Exceptions.FrameworkException{};
 	//Events
 	BobbleHead.CacherLoadedEvent = class extends BobbleHead.FrameworkEvent{
 		constructor(data = null){
