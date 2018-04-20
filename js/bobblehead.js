@@ -238,7 +238,7 @@ var bobblehead = (function(a){
 								else
 									moduleName = subSubUri;
 								var module = BobbleHead.ModulePool.getModule(moduleName);
-								var subSubSubUri = subSubUri.substring(n);
+								var subSubSubUri = subSubUri.substring(n+1);
 								n = subSubSubUri.indexOf('/');
 								var controllerName = null;
 								if(n>=0)
@@ -616,7 +616,7 @@ var bobblehead = (function(a){
 							var f = appContainer.getElementsByTagName("form");
 							for(var i=0; i<f.length; i++){
 								if(!f[i].hasAttribute('bbh-ignore')){
-									f[i].submit = function(connector){
+									f[i].onsubmit = function(connector){
 										for(var e of this.querySelectorAll('[name]')){
 											if(!e.checkValidity()){
 												e.reportValidity();
