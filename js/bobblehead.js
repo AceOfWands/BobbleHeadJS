@@ -372,7 +372,7 @@ var bobblehead = (function(a){
 						xhttp.setRequestHeader(header.name, header.value);
 					xhttp.responseType = 'json';
 					xhttp.onreadystatechange = function(){
-						var res = new Core.ResultMessage();
+						var res = new BobbleHead.Response();
 						if(xhttp.readyState === XMLHttpRequest.DONE){
 							var response = null;
 							res.code = 0;
@@ -436,7 +436,7 @@ var bobblehead = (function(a){
 						if(cacheMap)
 							BobbleHead.Cacher.cacheMap = cacheMap;
 						else{
-							BobbleHead.Cacher.cacheMap = {};
+							BobbleHead.Cacher.cacheMap = {'_id':'cacheMap'};
 							BobbleHead.log('Cacher',0,'Cacher map not found');
 						}
 						
@@ -452,16 +452,22 @@ var bobblehead = (function(a){
 								BobbleHead.Cacher.cacheHeap = cacheHeap;
 							}else{
 								BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
+								BobbleHead.Cacher.cacheHeap._id = 'cacheHeap';
 								BobbleHead.log('Cacher',0,'Cacher heap not found');
 							}
 							document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
 							resolve();
 						}).catch(function(err) {
+							BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
+							BobbleHead.Cacher.cacheHeap._id = 'cacheHeap';
 							BobbleHead.log('Cacher heap not found', 1, err);
 							document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
 							resolve();
 						});
 					}).catch(function(err) {
+						BobbleHead.Cacher.cacheMap = {'_id':'cacheMap'};
+						BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
+						BobbleHead.Cacher.cacheHeap._id = 'cacheHeap';
 						BobbleHead.log('Cacher map not found', 1, err);
 						document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
 						resolve();
