@@ -1020,6 +1020,12 @@ var bobblehead = (function(a){
 				var params = [f].concat(args);
 				return f.bind.apply(f, params);
 			},
+			serializeFormData(fd){
+				var r = [];
+				for(var x of fd.entries())
+					r.push(x[0]+'='+x[1]);
+				return r.join('&');
+			},
 			Heap: class{
 				constructor(unorderedArray = null){
 					if(unorderedArray)
