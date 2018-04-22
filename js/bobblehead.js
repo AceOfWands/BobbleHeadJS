@@ -72,25 +72,8 @@ var bobblehead = (function(a){
 					this.headers = {};
 				this.headers[a] = b;
 			}
-			setData(a,b = null){
-				if(a instanceof FormData){
-					this.data = {};
-					for(var x of a.entries())
-						this.data[x[0]] = x[1];
-				}else if(b != null && (a instanceof String)){
-					/*if(this._data == null)
-						this._data = new FormData();
-					this._data.set(a,b);*/
-					if(this.data == null)
-						this.data = {};
-					this.data[a] = b;
-				}
-			}
 			getData(){
-				var r = new FormData();
-				for(var x in this.data)
-					r.append(x, this.data[x]);
-				return r;
+				return this.data;
 			}
 			getMethod(){
 				return this.method;
@@ -103,15 +86,6 @@ var bobblehead = (function(a){
 					var v = this.headers[x];
 					yield {'name':x,'value':v};
 				}
-			}
-			equal(x){
-				if(!(x instanceof BobbleHead.Request)) return false;
-				if(this.method != x.getMethod()) return false;
-				if(this.uri != x.getUri()) return false;
-				var xData = x.data;
-				for(var i in this.data)
-					if(this.data[i] != xData[i]) return false;
-				return true;
 			}
 		},
 		GenericConfiguration: class{
@@ -268,8 +242,6 @@ var bobblehead = (function(a){
 							reject(e);
 						}
 					}
-				}).catch(function(e) {
-					BobbleHead.log(e);
 				});
 			}
 		},
@@ -409,7 +381,7 @@ var bobblehead = (function(a){
 								res.content = {'error':'No data response'};
 							}
 							if(xhttp.status === 200){
-								BobbleHead.Cacher.cache(request,response);
+								BobbleHead.Cacher.cache(request.toCacherRequest(),response);
 							}
 							if(res.code==0)
 								resolve(res);
@@ -418,8 +390,6 @@ var bobblehead = (function(a){
 						}
 					};
 					xhttp.send(request.getData());
-				}).catch(function(e) {
-					BobbleHead.log(e);
 				});
 			}
 		},
@@ -463,7 +433,7 @@ var bobblehead = (function(a){
 											form_data.append(key, _val.data[key]);
 										}
 									}
-									var val = new BobbleHead.Request(_val.method,_val.uri,form_data,_val.headers);
+									var val = new BobbleHead.CacherRequest(_val.method,_val.uri,form_data,_val.headers);
 									holdNodeArray.push(new BobbleHead.Util.HeapNode((cacheHeap.array[i]).key, val));
 								}
 								var rev = cacheHeap._rev;
@@ -557,7 +527,7 @@ var bobblehead = (function(a){
 			static getCached(request){
 				if(BobbleHead.Cacher.cacheMap[request.method] &&
 					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
-					return BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))];
+					return (BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]).toRequest();
 				return null;
 			}
 		},
@@ -649,7 +619,7 @@ var bobblehead = (function(a){
 							for(var i=0; i<a.length; i++){
 								if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
 									a[i].onclick = function(connector){
-										var req = new BobbleHead.Request('GET', this.getAttribute('href'), null); //TODO: data-*
+										var req = new BobbleHead.ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
 										connector.request(req);
 									}.bind(a[i],context.defaultConnector);
 							}
@@ -664,7 +634,7 @@ var bobblehead = (function(a){
 											}
 										}
 										var data = new FormData(this);
-										var req = new BobbleHead.Request(this.getAttribute('method'), this.getAttribute('action'), data);
+										var req = new BobbleHead.ConnectorRequest(this.getAttribute('method'), this.getAttribute('action'), data);
 										connector.request(req);
 									}.bind(f[i],context.defaultConnector);
 								}
@@ -1181,6 +1151,63 @@ var bobblehead = (function(a){
 	BobbleHead.Context.globalContext = null;
 	BobbleHead.AuthenticationMethods.methods = {};
 	//Library Sub-class
+	BobbleHead.ConnectorRequest = class extends BobbleHead.Request{
+		constructor(method,uri,data,headers = {}){
+			super(method,uri,data,headers);	
+		}
+		setData(a,b = null){
+			if(a instanceof FormData){
+				this.data = a;
+			}else if(b != null && (a instanceof String)){
+				if(this.data == null)
+					this.data = new FormData();
+				this.data.set(a,b);
+			}
+		}
+		equal(x){
+			if(!(x instanceof BobbleHead.Request)) return false;
+			if(this.method != x.getMethod()) return false;
+			if(this.uri != x.getUri()) return false;
+			var xData = x.getData();
+			if(xData != null && this.data != null)
+				if(x instanceof BobbleHead.ConnectorRequest)
+					for(var i of this.data)
+						if(this.data.get(i[0]) != i[1]) return false;
+				else if(x instanceof BobbleHead.CacherRequest)
+					for(var i in this.data)
+						if(this.data[i] != xData[i]) return false;
+			else if(xData !== this.data) return false;
+			return true;
+		}
+		toCacherRequest(){
+			return new BobbleHead.CacherRequest(this.method,this.uri,this.data,this.headers);
+		}
+	};
+	BobbleHead.CacherRequest = class extends BobbleHead.Request{
+		constructor(method,uri,data,headers = {}){
+			super(method,uri,data,headers);	
+		}
+		setData(a,b = null){
+			if(a instanceof FormData){
+				this.data = {};
+				for(var x of a.entries())
+					this.data[x[0]] = x[1];
+			}else if(b != null && (a instanceof String)){
+				if(this.data == null)
+					this.data = {};
+				this.data[a] = b;
+			}
+		}
+		toRequest(){
+			var toData = null;
+			if(this.data != null){
+				toData = new FormData();
+				for(var x in this.data)
+					toData.append(x, this.data[x]);
+			}
+			return new BobbleHead.ConnectorRequest(this.method,this.uri,toData,this.headers);
+		}
+	};
 	BobbleHead.ModuleConfiguration = class extends BobbleHead.GenericConfiguration{};
 	BobbleHead.PageConfiguration = class extends BobbleHead.GenericConfiguration{};
 	BobbleHead.Util.ReverseHeap = class extends BobbleHead.Util.Heap {
