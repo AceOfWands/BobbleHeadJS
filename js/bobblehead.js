@@ -214,7 +214,7 @@ var bobblehead = (function(a){
 									if(vid_str == 'back')
 										context.pageBuilder.pageBack();
 									else
-										context.pageBuilder.buildPage(parseInt(vid_str),request.getData()).then(resolve).catch(reject);
+										context.pageBuilder.buildPage(parseInt(vid_str),request.getDataAsObject()).then(resolve).catch(reject);
 								}
 							}else if(subUri.startsWith('module/')){
 								var subSubUri = subUri.substring(7);
@@ -1155,6 +1155,15 @@ var bobblehead = (function(a){
 		constructor(method,uri,data,headers = {}){
 			super(method,uri,data,headers);	
 		}
+		getDataAsObject(){
+			var r = null;
+			if(this.data!=null){
+				r = {};
+				for(var x of this.data.entries())
+					r[x[0]] = x[1];
+			}
+			return r;
+		}
 		setData(a,b = null){
 			if(a instanceof FormData){
 				this.data = a;
@@ -1169,13 +1178,25 @@ var bobblehead = (function(a){
 			if(this.method != x.getMethod()) return false;
 			if(this.uri != x.getUri()) return false;
 			var xData = x.getData();
-			if(xData != null && this.data != null)
-				if(x instanceof BobbleHead.ConnectorRequest)
-					for(var i of this.data)
-						if(this.data.get(i[0]) != i[1]) return false;
-				else if(x instanceof BobbleHead.CacherRequest)
-					for(var i in this.data)
-						if(this.data[i] != xData[i]) return false;
+			if(xData != null && this.data != null){
+				var size = 0;
+				if(x instanceof BobbleHead.ConnectorRequest){
+					var xsize = 0;
+					for(var k of xData.keys())
+						xsize++;
+					if(xsize != size) return false;
+					for(var i of this.data){
+						if(xData.get(i[0]) != i[1]) return false;
+						size++;
+					}
+				}else if(x instanceof BobbleHead.CacherRequest){
+					for(var i of this.data){
+						if(xData[i[0]] != i[1]) return false;
+						size++;
+					}
+					if(Object.keys(xData).length != size) return false;
+				}
+			}
 			else if(xData !== this.data) return false;
 			return true;
 		}
@@ -1206,6 +1227,28 @@ var bobblehead = (function(a){
 					toData.append(x, this.data[x]);
 			}
 			return new BobbleHead.ConnectorRequest(this.method,this.uri,toData,this.headers);
+		}
+		equal(x){
+			if(!(x instanceof BobbleHead.Request)) return false;
+			if(this.method != x.getMethod()) return false;
+			if(this.uri != x.getUri()) return false;
+			var xData = x.getData();
+			if(xData != null && this.data != null)
+				if(x instanceof BobbleHead.ConnectorRequest){
+					var size = Object.keys(this.data).length;
+					var xsize = 0;
+					for(var i of xData){
+						if(this.data[i[0]] != i[1]) return false;
+						xsize++;
+					}
+					if(xsize != size) return false;
+				}else if(x instanceof BobbleHead.CacherRequest){
+					if(Object.keys(xData).length != Object.keys(this.data).length) return false;
+					for(var i in this.data)
+						if(xData[i] != this.data[i]) return false;
+				}
+			else if(xData !== this.data) return false;
+			return true;
 		}
 	};
 	BobbleHead.ModuleConfiguration = class extends BobbleHead.GenericConfiguration{};
