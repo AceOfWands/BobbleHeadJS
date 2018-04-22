@@ -294,9 +294,11 @@ var bobblehead = (function(a){
 					var db = BobbleHead.Database.getInstance();
 					this.controllerData = {};
 					db.get('session').then(function(session) {
-						this.controllerData.session = session;
-						this.currentAuthMethod.replaceCurrentSession(session);
-						BobbleHead.log('Fetched local session', 0, session);
+						this.controllerData.session = new BobbleHead.Session(session.info);
+						this.controllerData.session._id = session._id;
+						this.controllerData.session._rev = session._rev;
+						this.currentAuthMethod.replaceCurrentSession(this.controllerData.session);
+						BobbleHead.log('Fetched local session', 0, this.controllerData.session);
 						document.dispatchEvent(new BobbleHead.AccessControllerLoadedEvent());
 						resolve();
 					}.bind(this)).catch(function(err) {
