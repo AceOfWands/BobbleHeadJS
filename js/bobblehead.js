@@ -115,7 +115,7 @@ var bobblehead = (function(a){
 			constructor(id, model, change = null, allowEdit = true){
 				this.id = id;
 				this.model = model;
-				this.change = change.bind(this);
+				this.change = (change != null) ? change.bind(this) : null;
 				this.allowEdit = allowEdit;
 			}
 		},
@@ -548,6 +548,14 @@ var bobblehead = (function(a){
 				var context = BobbleHead.Context.getGlobal();
 				context.accessController.processVirtualPage(vpage);
 			}
+			getNewContainer(){
+				var domcontainer = null;
+				document.body.removeChild(document.getElementById(this.container));
+				domcontainer = document.createElement("div");
+				domcontainer.setAttribute("id", this.container);
+				document.body.appendChild(domcontainer);
+				return domcontainer;
+			}
 			buildPage(virtualID, data){
 				return new Promise(function(resolve, reject) {
 					var page = BobbleHead.PageFactory.getPage(virtualID);
@@ -556,7 +564,7 @@ var bobblehead = (function(a){
 							this.pageStack.push(this.currentPage);
 						if(page.lock)
 							this.pageStack = [];
-						var domcontainer = document.getElementById(this.container);
+						var domcontainer = this.getNewContainer();
 						var pageContx = new BobbleHead.PageContext(domcontainer);
 						this.currentPage = new BobbleHead.VirtualPage(page, data, pageContx, resolve, reject);
 						this.checkVirtualPage(this.currentPage);
@@ -647,7 +655,7 @@ var bobblehead = (function(a){
 									for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
 										e.setAttribute('bbh-manipulating','true');
 										var sand = new Sandbox(e, context.clone());
-										var modpromise = sand.execFunction(mod.manipulate, [], mod);
+										var modpromise = sand.execMethod('manipulate', [], mod);
 										modpromise.then(function(){
 											e.setAttribute('bbh-manipulating','false');
 										});
@@ -676,6 +684,7 @@ var bobblehead = (function(a){
 				var vpage = this.pageStack.pop();
 				if(vpage){
 					this.checkVirtualPage(vpage);
+					this.getNewContainer();
 					this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
 				}else
 					throw new BobbleHead.Exceptions.PageNotFoundException();
@@ -1169,7 +1178,7 @@ var bobblehead = (function(a){
 		setData(a,b = null){
 			if(a instanceof FormData){
 				this.data = a;
-			}else if(b != null && (a instanceof String)){
+			}else if(b != null && (typeof a === "string")){
 				if(this.data == null)
 					this.data = new FormData();
 				this.data.set(a,b);
@@ -1215,7 +1224,7 @@ var bobblehead = (function(a){
 				this.data = {};
 				for(var x of a.entries())
 					this.data[x[0]] = x[1];
-			}else if(b != null && (a instanceof String)){
+			}else if(b != null && (typeof a === "string")){
 				if(this.data == null)
 					this.data = {};
 				this.data[a] = b;
