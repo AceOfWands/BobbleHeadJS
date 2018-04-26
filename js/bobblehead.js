@@ -180,13 +180,14 @@ var bobblehead = (function(a){
 			}
 		},
 		Page: class{
-			constructor(path,vid,lock,configuration = null, modules = null, roles = null){
+			constructor(path,vid,lock,configuration = null, modules = null, roles = null, keepLive = false){
 				this.path = path;
 				this.vid = vid;
 				this.lock = lock;
 				this.configuration = configuration;
 				this.modules = modules;
 				this.roles = roles;
+				this.keepLive = keepLive;
 			}
 		},
 		PageContext: class{
@@ -383,7 +384,7 @@ var bobblehead = (function(a){
 								res.content = {'error':'No data response'};
 							}
 							if(xhttp.status === 200){
-								BobbleHead.Cacher.cache(request.toCacherRequest(),response);
+								BobbleHead.Cacher.cache(request,response);
 							}
 							if(res.code==0)
 								resolve(res);
@@ -480,56 +481,67 @@ var bobblehead = (function(a){
 				});
 			}
 			static cache(request, response){
-				if(BobbleHead.Cacher.blacklist.indexOf(request.uri) == -1){
-					var db = BobbleHead.Database.getInstance();
-					if(BobbleHead.Cacher.cacheMap[request.method] &&
-						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] &&
-						BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]){
-							var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
-							hold.incKey();
-							BobbleHead.Cacher.cacheHeap.reheap();
-							db.put(BobbleHead.Cacher.cacheHeap,{rev: true}).then(function (response) {
-								BobbleHead.Cacher.cacheHeap._rev = response.rev;
-								BobbleHead.log('Saved Cacher heap', 0, response);
-							}).catch(function (err) {
-								BobbleHead.log('Cannot save Cacher heap', 1, err);
-							});
-							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
-					}else{
-						if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxCached)
-							for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
-								var hold = BobbleHead.Cacher.cacheHeap.pop();
-								var reqToDel = hold.getValue();
-								delete BobbleHead.Cacher.cacheMap[reqToDel.method][btoa(reqToDel.uri)][md5(JSON.stringify(reqToDel.data))];
+				var hold_request = request.toCacherRequest();
+				Promise.all( !(hold_request instanceof BobbleHead.CacherRequest) ? hold_request : [new Promise(function(rs,rj){rs(hold_request)})])
+				.then(function(request, response, obj){
+					var request = obj.pop();
+					if(BobbleHead.Cacher.blacklist.indexOf(request.uri) == -1){
+						var db = BobbleHead.Database.getInstance();
+						if(BobbleHead.Cacher.cacheMap[request.method] &&
+							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] &&
+							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]){
+								var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
+								var incNodeFunc = function(db, ele){
+									ele.incKey();
+									BobbleHead.Cacher.cacheHeap.reheap();
+									db.put(BobbleHead.Cacher.cacheHeap,{rev: true}).then(function (response) {
+										BobbleHead.Cacher.cacheHeap._rev = response.rev;
+										BobbleHead.log('Saved Cacher heap', 0, response);
+									}).catch(function (err) {
+										BobbleHead.log('Cannot save Cacher heap', 1, err);
+									});
+									BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
+								}
+								if(hold instanceof Promise)
+									hold.then(incNodeFunc.bind(this, db));
+								else
+									incNodeFunc(db, hold);
+						}else{
+							if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxCached)
+								for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
+									var hold = BobbleHead.Cacher.cacheHeap.pop();
+									var reqToDel = hold.getValue();
+									delete BobbleHead.Cacher.cacheMap[reqToDel.method][btoa(reqToDel.uri)][md5(JSON.stringify(reqToDel.data))];
+								}
+							if(BobbleHead.Cacher.whitelist.indexOf(request.uri) == -1){
+								var node = new BobbleHead.Util.HeapNode(1,request);
+								BobbleHead.Cacher.cacheHeap.addNode(node);
+								db.put(BobbleHead.Cacher.cacheHeap,{rev: true}).then(function (response) {
+									BobbleHead.Cacher.cacheHeap._rev = response.rev;
+									BobbleHead.log('Saved Cacher heap', 0, response);
+								}).catch(function (err) {
+									BobbleHead.log('Cannot save Cacher heap', 1, err);
+								});
 							}
-						if(BobbleHead.Cacher.whitelist.indexOf(request.uri) == -1){
-							var node = new BobbleHead.Util.HeapNode(1,request);
-							BobbleHead.Cacher.cacheHeap.addNode(node);
-							db.put(BobbleHead.Cacher.cacheHeap,{rev: true}).then(function (response) {
-								BobbleHead.Cacher.cacheHeap._rev = response.rev;
-								BobbleHead.log('Saved Cacher heap', 0, response);
-							}).catch(function (err) {
-								BobbleHead.log('Cannot save Cacher heap', 1, err);
-							});
+							if(!BobbleHead.Cacher.cacheMap[request.method])
+								BobbleHead.Cacher.cacheMap[request.method] = {};
+							if(!BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
+								BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] = {};
+								BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
+								db.put(BobbleHead.Cacher.cacheMap,{rev: true}).then(function (response) {
+									BobbleHead.Cacher.cacheMap._rev = response.rev;
+									BobbleHead.log('Saved Cacher map', 0, response);
+								}).catch(function (err) {
+									BobbleHead.log('Cannot save Cacher map', 1, err);
+								});
 						}
-						if(!BobbleHead.Cacher.cacheMap[request.method])
-							BobbleHead.Cacher.cacheMap[request.method] = {};
-						if(!BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
-							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] = {};
-							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
-							db.put(BobbleHead.Cacher.cacheMap,{rev: true}).then(function (response) {
-								BobbleHead.Cacher.cacheMap._rev = response.rev;
-								BobbleHead.log('Saved Cacher map', 0, response);
-							}).catch(function (err) {
-								BobbleHead.log('Cannot save Cacher map', 1, err);
-							});
 					}
-				}
+				}.bind(this, request, response));
 			}
 			static getCached(request){
 				if(BobbleHead.Cacher.cacheMap[request.method] &&
 					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
-					return (BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]).toRequest();
+					return BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))];
 				return null;
 			}
 		},
@@ -548,32 +560,169 @@ var bobblehead = (function(a){
 				var context = BobbleHead.Context.getGlobal();
 				context.accessController.processVirtualPage(vpage);
 			}
-			getNewContainer(){
-				var domcontainer = null;
-				document.body.removeChild(document.getElementById(this.container));
-				domcontainer = document.createElement("div");
-				domcontainer.setAttribute("id", this.container);
-				document.body.appendChild(domcontainer);
-				return domcontainer;
+			pageHop(){
+				var newdomcontainer = document.getElementById(this.container);
+				for(var i = 100; i>=0; i--){
+					newdomcontainer.style.left = i+'%';
+				}
+				newdomcontainer.style.position = '';
+				newdomcontainer.style.float = 'none';
+				document.body.removeChild(document.getElementById("snapPageIframe"));
+			}
+			getNewContainer(toHistory, prevPageSrc="about:blank"){
+				var domcontainer = document.getElementById(this.container);
+				domcontainer.setAttribute("id", this.container+'-toDelete');
+				var newdomcontainer = document.createElement("div");
+				newdomcontainer.setAttribute("id", this.container);
+				newdomcontainer.style.left = '100%';
+				newdomcontainer.style.width = '100%';
+				newdomcontainer.style.float = 'left';
+				newdomcontainer.style.position = 'absolute';
+				document.body.appendChild(newdomcontainer);
+				var newIframe = document.createElement('iframe');
+				newIframe.id = "snapPageIframe";
+				newIframe.width = '100%';newIframe.height = '100%';
+				newIframe.src = prevPageSrc;
+				document.body.appendChild(newIframe);
+				if(!toHistory)
+					document.body.removeChild(domcontainer);
+				else{
+					var hNum = (document.querySelectorAll('*[id^="historyPage-"]').length);
+					domcontainer.setAttribute('id', 'historyPage-'+hNum);
+					domcontainer.style.display = 'none';
+					var eleIds = domcontainer.querySelectorAll('*[id]');
+					for(var i = 0; i<eleIds.length; i++){
+						eleIds[i].id += '-history'+hNum;
+					}
+				}
+				return newdomcontainer;
 			}
 			buildPage(virtualID, data){
 				return new Promise(function(resolve, reject) {
 					var page = BobbleHead.PageFactory.getPage(virtualID);
 					if(page){
-						if(!page.lock && this.currentPage!=null)
+						var toHistory = false;
+						if(!page.lock && this.currentPage!=null){
+							if(this.currentPage.page.keepLive)
+								toHistory = true;
 							this.pageStack.push(this.currentPage);
+						}
 						if(page.lock)
 							this.pageStack = [];
-						var domcontainer = this.getNewContainer();
+						var domcontainer = this.getNewContainer(toHistory, (this.currentPage) ? this.currentPage.page.path : undefined);
 						var pageContx = new BobbleHead.PageContext(domcontainer);
 						this.currentPage = new BobbleHead.VirtualPage(page, data, pageContx, resolve, reject);
 						this.checkVirtualPage(this.currentPage);
 						this.buildPageByObject(page, data, pageContx, resolve, reject);
+						this.pageHop();
 					}else
 						reject(new BobbleHead.Exceptions.PageNotFoundException());
 				}.bind(this)).catch(function(e) {
 					BobbleHead.log(e);
 				});
+			}
+			buildPageFromHistory(historyNum, prevPageSrc){
+				var domcontainer = document.getElementById(this.container);
+				domcontainer.setAttribute("id", this.container+'-toDelete');
+				var newdomcontainer = document.getElementById('historyPage-'+historyNum);
+				var newIframe = document.createElement('iframe');
+				newIframe.id = "snapPageIframe";
+				newIframe.width = '100%';newIframe.height = '100%';
+				newIframe.src = prevPageSrc;
+				document.body.appendChild(newIframe);
+				document.body.removeChild(domcontainer);
+				newdomcontainer.setAttribute('id', this.container);
+				newdomcontainer.style.display = 'inline';
+				var eleIds = newdomcontainer.querySelectorAll('*[id]');
+				var toTrim = ('-history'+historyNum).length;
+				for(var i = 0; i<eleIds.length; i++){
+					eleIds[i].id = (eleIds[i].id).substring(0, (eleIds[i].id).length - toTrim);
+				}
+			}
+			async buildPageByText(html, data, sandbox, modulesToLoad, onSuccess, onFailure){
+					var context = BobbleHead.Context.getGlobal();
+					var appContainer = document.getElementById(this.container);
+					appContainer.innerHTML = Mustache.render(html,
+						{pageData: data, models: BobbleHead.ModelPool.getModels()});
+					
+					var js = appContainer.getElementsByTagName("script");
+					var lastscript = null;
+					for(var i=0; i<js.length; i++){
+						if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
+							var scriptfile = js[i].getAttribute('src');
+							var nsync = js[i].getAttribute('async');
+							if(nsync != 'true' && lastscript != null)
+								await lastscript;
+							var scriptprom = new Promise(function(resolve, reject){
+								var xhttp2 = new XMLHttpRequest();
+								xhttp2.open('get', scriptfile, true);
+								xhttp2.responseType = 'text';
+								xhttp2.onreadystatechange = function(sandbox,sf){
+									if(xhttp2.readyState === XMLHttpRequest.DONE){
+										try{
+											sandbox.execCode(xhttp2.response);
+										}catch(e){
+											BobbleHead.log('Execution of scriptfile: '+sf, 3, e);
+										}
+										resolve();
+									}
+								}.bind(this,sandbox,scriptfile);
+								xhttp2.send();
+							}).catch(function(e) {
+								BobbleHead.log(e);
+							});
+							if(nsync != 'true')
+								lastscript = scriptprom;
+						}else
+							try{
+								sandbox.execCode(js[i].innerHTML);
+							}catch(e){
+								BobbleHead.log('Execution of script code', 3, e);
+							}
+							
+					}
+					var a = appContainer.getElementsByTagName("a");
+					for(var i=0; i<a.length; i++){
+						if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
+							a[i].onclick = function(connector){
+								var req = new BobbleHead.ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
+								connector.request(req);
+							}.bind(a[i],context.defaultConnector);
+					}
+					var f = appContainer.getElementsByTagName("form");
+					for(var i=0; i<f.length; i++){
+						if(!f[i].hasAttribute('bbh-ignore')){
+							f[i].onsubmit = function(connector){
+								for(var e of this.querySelectorAll('[name]')){
+									if(!e.checkValidity()){
+										e.reportValidity();
+										return;
+									}
+								}
+								var data = new FormData(this);
+								var req = new BobbleHead.ConnectorRequest(this.getAttribute('method'), this.getAttribute('action'), data);
+								connector.request(req);
+							}.bind(f[i],context.defaultConnector);
+						}
+					}
+					var modpromises = [];
+					for(var mod of BobbleHead.ModulePool.getModules()){
+						if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
+							for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
+								e.setAttribute('bbh-manipulating','true');
+								var sand = new Sandbox(e, context.clone());
+								var modpromise = sand.execMethod('manipulate', [], mod);
+								modpromise.then(function(){
+									e.setAttribute('bbh-manipulating','false');
+								});
+								modpromises.push(modpromise);
+							}
+					}
+					Promise.all(modpromises).then(function(){
+						document.dispatchEvent(new BobbleHead.PageReadyEvent());
+						appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
+						onSuccess();
+					});
 			}
 			buildPageByObject(page, data, pageContext, onSuccess = BobbleHead.defaultCallback, onFailure = BobbleHead.defaultCallback){
 				try{
@@ -584,90 +733,7 @@ var bobblehead = (function(a){
 						if(xhttp.readyState === XMLHttpRequest.DONE && xhttp.status === 404)
 							onFailure(new BobbleHead.Exceptions.PageNotFoundException());
 						else if(xhttp.readyState === XMLHttpRequest.DONE){
-							var context = BobbleHead.Context.getGlobal();
-							var appContainer = document.getElementById(this.container);
-							appContainer.innerHTML = Mustache.render(xhttp.response,
-								{pageData: data, models: BobbleHead.ModelPool.getModels()});
-							
-							var js = appContainer.getElementsByTagName("script");
-							var lastscript = null;
-							for(var i=0; i<js.length; i++){
-								if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
-									var scriptfile = js[i].getAttribute('src');
-									var nsync = js[i].getAttribute('async');
-									if(nsync != 'true' && lastscript != null)
-										await lastscript;
-									var scriptprom = new Promise(function(resolve, reject){
-										var xhttp2 = new XMLHttpRequest();
-										xhttp2.open('get', scriptfile, true);
-										xhttp2.responseType = 'text';
-										xhttp2.onreadystatechange = function(sandbox){
-											if(this.readyState === XMLHttpRequest.DONE){
-												try{
-													sandbox.execCode(this.response);
-												}catch(e){
-													BobbleHead.log('Execution of scriptfile: '+scriptfile, 3, e);
-												}
-												resolve();
-											}
-										}.bind(xhttp2,sandbox);
-										xhttp2.send();
-									}).catch(function(e) {
-										BobbleHead.log(e);
-									});
-									if(nsync != 'true')
-										lastscript = scriptprom;
-								}else
-									try{
-										pageContext.execCode(js[i].innerHTML);
-									}catch(e){
-										BobbleHead.log('Execution of script code', 3, e);
-									}
-									
-							}
-							var a = appContainer.getElementsByTagName("a");
-							for(var i=0; i<a.length; i++){
-								if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
-									a[i].onclick = function(connector){
-										var req = new BobbleHead.ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
-										connector.request(req);
-									}.bind(a[i],context.defaultConnector);
-							}
-							var f = appContainer.getElementsByTagName("form");
-							for(var i=0; i<f.length; i++){
-								if(!f[i].hasAttribute('bbh-ignore')){
-									f[i].onsubmit = function(connector){
-										for(var e of this.querySelectorAll('[name]')){
-											if(!e.checkValidity()){
-												e.reportValidity();
-												return;
-											}
-										}
-										var data = new FormData(this);
-										var req = new BobbleHead.ConnectorRequest(this.getAttribute('method'), this.getAttribute('action'), data);
-										connector.request(req);
-									}.bind(f[i],context.defaultConnector);
-								}
-							}
-							var modpromises = [];
-							for(var mod of BobbleHead.ModulePool.getModules()){
-								if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
-									for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
-										e.setAttribute('bbh-manipulating','true');
-										var sand = new Sandbox(e, context.clone());
-										var modpromise = sand.execMethod('manipulate', [], mod);
-										modpromise.then(function(){
-											e.setAttribute('bbh-manipulating','false');
-										});
-										modpromises.push(modpromise);
-									}
-							}
-							Promise.all(modpromises).then(function(){
-								document.dispatchEvent(new BobbleHead.PageReadyEvent());
-								appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
-								onSuccess();
-							});
-							
+							this.buildPageByText(xhttp.response, data, sandbox, modulesToLoad, onSuccess, onFailure);
 						}
 					}.bind(this, data, pageContext, page.modules, onSuccess, onFailure);
 					xhttp.send(null);
@@ -684,8 +750,15 @@ var bobblehead = (function(a){
 				var vpage = this.pageStack.pop();
 				if(vpage){
 					this.checkVirtualPage(vpage);
-					this.getNewContainer();
-					this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
+					if(vpage.page.keepLive){
+						var hNum = (document.querySelectorAll('*[id^="historyPage-"]').length);
+						this.buildPageFromHistory(hNum - 1, vpage.data, vpage.context, vpage.page.modules, vpage.success, vpage.fail);
+						this.pageHop();
+					}else{
+						this.getNewContainer(toHistory, vpage.page.path);
+						this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
+						this.pageHop();
+					}
 				}else
 					throw new BobbleHead.Exceptions.PageNotFoundException();
 			}
@@ -815,7 +888,8 @@ var bobblehead = (function(a){
 						}
 						var confPage = new BobbleHead.PageConfiguration(hold_vconf);
 						var newPage = new BobbleHead.Page(p.getAttribute('path'), //pages_path+
-							parseInt(p.getAttribute('vid')),(p.getAttribute('noback')=='true'),confPage, modulesAll);
+							parseInt(p.getAttribute('vid')),(p.getAttribute('noback')=='true'),confPage, modulesAll, null,
+							(p.hasAttribute('keepLive')) ? (p.getAttribute('keepLive')=='true') : undefined);
 						BobbleHead.PageFactory.addPage(newPage);
 					}
 					BobbleHead.AppController.configuration = new BobbleHead.GenericConfiguration(hold_conf);
@@ -913,7 +987,7 @@ var bobblehead = (function(a){
 						globalContext.localDatabase = BobbleHead.Database.getInstance();
 						accesscontroller_promise.then(function(){
 							for(var sm of BobbleHead.ModulePool.getModules()){
-								var sandbox = new Sandbox(document, globalContext.clone());
+								var sandbox = new Sandbox(document.getElementById(hold_conf.container), globalContext.clone());
 								sandbox.execMethod('init', [moduleConfs[sm.name]], sm);
 							}
 							if(pages_index){
@@ -1103,10 +1177,26 @@ var bobblehead = (function(a){
 					return this.array[0];
 				}
 				findByValue(val){
-					for(var i=0, l=this.array.length; i<l; i++)
-						if(this.array[i].getValue().equal(val))
-							return this.array[i];
-					return null;
+					return new Promise(function(resolve, reject){
+						for(var i=0, l=this.array.length; i<l; i++){
+							var res = this.array[i].getValue().equal(val);
+							if(res === true)
+								resolve(this.array[i]);
+							if(res instanceof Promise)
+								res.then(function(ele, callback, negate, result){
+									if(res === true)
+										callback(ele);
+									if(res === false)
+										negate();
+									if(res instanceof Array)
+										for(var i=0; i<res.length; i++)
+											if(res[i] === false)
+												negate();
+									callback(ele);
+								}.bind(this, this.array[i], resolve, reject));
+						}
+						reject();
+					}.bind(this));
 				}
 				*getNodes(){
 					for(var i=0, l=this.array.length; i<l; i++)
@@ -1189,6 +1279,7 @@ var bobblehead = (function(a){
 			if(this.method != x.getMethod()) return false;
 			if(this.uri != x.getUri()) return false;
 			var xData = x.getData();
+			var promises = null;
 			if(xData != null && this.data != null){
 				var size = 0;
 				if(x instanceof BobbleHead.ConnectorRequest){
@@ -1202,14 +1293,22 @@ var bobblehead = (function(a){
 					}
 				}else if(x instanceof BobbleHead.CacherRequest){
 					for(var i of this.data){
-						if(xData[i[0]] != i[1]) return false;
+						if(i[1] instanceof Blob){
+							promises.push(new Promise(function(resolve, reject){
+								var reader = new FileReader();
+								reader.onload = function(){
+									resolve(xData[i[0]] == md5(reader.result));
+								}.bind(this);
+								reader.readAsText(i[1]);
+							}));
+						}else if(xData[i[0]] != i[1]) return false;
 						size++;
 					}
 					if(Object.keys(xData).length != size) return false;
 				}
 			}
 			else if(xData !== this.data) return false;
-			return true;
+			return !promises ? true : Promise.all(promises);
 		}
 		toCacherRequest(){
 			return new BobbleHead.CacherRequest(this.method,this.uri,this.data,this.headers);
@@ -1217,13 +1316,29 @@ var bobblehead = (function(a){
 	};
 	BobbleHead.CacherRequest = class extends BobbleHead.Request{
 		constructor(method,uri,data,headers = {}){
-			super(method,uri,data,headers);	
+			super(method,uri,data,headers);
+			var promises = this.promise;
+			delete this.promise;
+			return promises || this;
 		}
 		setData(a,b = null){
+			this.promise = null;
 			if(a instanceof FormData){
 				this.data = {};
 				for(var x of a.entries())
-					this.data[x[0]] = x[1];
+					if(x[1] instanceof Blob){
+						if(this.promise == null)
+							this.promise = [];
+						this.promise.push(new Promise(function(name, resolve, reject){
+							var reader = new FileReader();
+							reader.onload = function(){
+								this.data[name] = md5(reader.result);
+								resolve(this);
+							}.bind(this);
+							reader.readAsText(x[1]);
+						}.bind(this, x[0])));
+					}else
+						this.data[x[0]] = x[1];
 			}else if(b != null && (typeof a === "string")){
 				if(this.data == null)
 					this.data = {};
@@ -1244,12 +1359,21 @@ var bobblehead = (function(a){
 			if(this.method != x.getMethod()) return false;
 			if(this.uri != x.getUri()) return false;
 			var xData = x.getData();
+			var promises = null;
 			if(xData != null && this.data != null)
 				if(x instanceof BobbleHead.ConnectorRequest){
 					var size = Object.keys(this.data).length;
 					var xsize = 0;
 					for(var i of xData){
-						if(this.data[i[0]] != i[1]) return false;
+						if(i[1] instanceof Blob){
+							promises.push(new Promise(function(resolve, reject){
+								var reader = new FileReader();
+								reader.onload = function(){
+									resolve(this.data[i[0]] == md5(reader.result));
+								}.bind(this);
+								reader.readAsText(i[1]);
+							}.bind(this)));
+						}else if(this.data[i[0]] != i[1]) return false;
 						xsize++;
 					}
 					if(xsize != size) return false;
@@ -1259,7 +1383,7 @@ var bobblehead = (function(a){
 						if(xData[i] != this.data[i]) return false;
 				}
 			else if(xData !== this.data) return false;
-			return true;
+			return !promises ? true : Promise.all(promises);
 		}
 	};
 	BobbleHead.ModuleConfiguration = class extends BobbleHead.GenericConfiguration{};
