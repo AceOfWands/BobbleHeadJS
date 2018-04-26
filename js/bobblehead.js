@@ -180,7 +180,7 @@ var bobblehead = (function(a){
 			}
 		},
 		Page: class{
-			constructor(path,vid,lock,configuration = null, modules = null, roles = null, keepLive = false){
+			constructor(path,vid,lock,configuration = null, modules = null, keepLive = false, allowDuplicate = false, roles = null){
 				this.path = path;
 				this.vid = vid;
 				this.lock = lock;
@@ -188,6 +188,7 @@ var bobblehead = (function(a){
 				this.modules = modules;
 				this.roles = roles;
 				this.keepLive = keepLive;
+				this.allowDuplicate = allowDuplicate;
 			}
 		},
 		PageContext: class{
@@ -602,7 +603,7 @@ var bobblehead = (function(a){
 					var page = BobbleHead.PageFactory.getPage(virtualID);
 					if(page){
 						var toHistory = false;
-						if(!page.lock && this.currentPage!=null){
+						if(!page.lock && this.currentPage!=null && (page.vid != this.currentPage.page.vid || page.allowDuplicate)){
 							if(this.currentPage.page.keepLive)
 								toHistory = true;
 							this.pageStack.push(this.currentPage);
@@ -749,6 +750,7 @@ var bobblehead = (function(a){
 			pageBack(){
 				var vpage = this.pageStack.pop();
 				if(vpage){
+					this.currentPage = vpage;
 					this.checkVirtualPage(vpage);
 					if(vpage.page.keepLive){
 						var hNum = (document.querySelectorAll('*[id^="historyPage-"]').length);
@@ -888,8 +890,9 @@ var bobblehead = (function(a){
 						}
 						var confPage = new BobbleHead.PageConfiguration(hold_vconf);
 						var newPage = new BobbleHead.Page(p.getAttribute('path'), //pages_path+
-							parseInt(p.getAttribute('vid')),(p.getAttribute('noback')=='true'),confPage, modulesAll, null,
-							(p.hasAttribute('keepLive')) ? (p.getAttribute('keepLive')=='true') : undefined);
+							parseInt(p.getAttribute('vid')),(p.getAttribute('noback')=='true'),confPage, modulesAll,
+							(p.hasAttribute('keepLive')) ? (p.getAttribute('keepLive')=='true') : undefined,
+							(p.hasAttribute('allowDuplicate')) ? (p.getAttribute('allowDuplicate')=='true') : undefined);
 						BobbleHead.PageFactory.addPage(newPage);
 					}
 					BobbleHead.AppController.configuration = new BobbleHead.GenericConfiguration(hold_conf);
