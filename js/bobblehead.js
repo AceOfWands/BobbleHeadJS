@@ -398,19 +398,17 @@ var bobblehead = (function(a){
 			}
 		},
 		GenericConnector: class{
-			request(request,onSuccess = BobbleHead.defaultCallback,onFailure = BobbleHead.defaultCallback){
-				return new Promise(function(resolve, reject) {
-					var test = BobbleHead.Util.isRemoteURIPattern.test(request.uri);
-					var connector = null;
-					var context = BobbleHead.Context.getGlobal();
-					context.accessController.processRequest(request);
-					if(!test){
-						connector = BobbleHead.InternalConnector.getInstance();
-					}else{
-						connector = BobbleHead.ExternalConnector.getInstance();
-					}
-					connector.doRequest(request).then(resolve).catch(reject);
-				}).then(onSuccess).catch(onFailure);
+			request(request){
+				var test = BobbleHead.Util.isRemoteURIPattern.test(request.uri);
+				var connector = null;
+				var context = BobbleHead.Context.getGlobal();
+				context.accessController.processRequest(request);
+				if(!test){
+					connector = BobbleHead.InternalConnector.getInstance();
+				}else{
+					connector = BobbleHead.ExternalConnector.getInstance();
+				}
+				return connector.doRequest(request);
 			}
 		},
 		Cacher: class{
@@ -989,9 +987,12 @@ var bobblehead = (function(a){
 						}
 						globalContext.localDatabase = BobbleHead.Database.getInstance();
 						accesscontroller_promise.then(function(){
+							var otherPromises = [];
 							for(var sm of BobbleHead.ModulePool.getModules()){
 								var sandbox = new Sandbox(document.getElementById(hold_conf.container), globalContext.clone());
-								sandbox.execMethod('init', [moduleConfs[sm.name]], sm);
+								var initReturn = sandbox.execMethod('init', [moduleConfs[sm.name]], sm);
+								if(initReturn instanceof Promise)
+									otherPromises.push(initReturn);
 							}
 							if(pages_index){
 								hold_conf.index = parseInt(pages_index.getAttribute('vid'));
@@ -1003,7 +1004,9 @@ var bobblehead = (function(a){
 											index_data[c.tagName] = c.textContent;
 									}
 								}
-								globalContext.pageBuilder.buildPage(hold_conf.index,index_data);
+								Promise.all(otherPromises).then(function(index,index_data){
+									this.pageBuilder.buildPage(index,index_data);
+								}.bind(globalContext,hold_conf.index,index_data));
 							}
 							this.initialization = false;
 						}.bind(this));
