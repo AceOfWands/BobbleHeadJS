@@ -481,8 +481,7 @@ var bobblehead = (function(a){
 			}
 			static cache(request, response){
 				var hold_request = request.toCacherRequest();
-				Promise.all( !(hold_request instanceof BobbleHead.CacherRequest) ? hold_request : [new Promise(function(rs,rj){rs(hold_request)})])
-				.then(function(request, response, obj){
+				var cache_converted_request_func = function(response, obj){
 					var request = obj.pop();
 					if(BobbleHead.Cacher.blacklist.indexOf(request.uri) == -1){
 						var db = BobbleHead.Database.getInstance();
@@ -535,7 +534,11 @@ var bobblehead = (function(a){
 								});
 						}
 					}
-				}.bind(this, request, response));
+				};
+				if(!(hold_request instanceof BobbleHead.CacherRequest))
+					Promise.all(hold_request).then(cache_converted_request_func.bind(this, response));
+				else
+					(cache_converted_request_func.bind(this))(response, [hold_request]);
 			}
 			static getCached(request){
 				if(BobbleHead.Cacher.cacheMap[request.method] &&
