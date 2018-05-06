@@ -193,6 +193,10 @@ var bobblehead = (function(a){
 		},
 		PageContext: class{
 			constructor(domcontainer){
+				var globalContext = BobbleHead.Context.getGlobal();
+				for(var x in globalContext){
+					this[x] = globalContext[x];
+				}
 				return new Sandbox(domcontainer, this);
 			}
 		},
@@ -650,9 +654,9 @@ var bobblehead = (function(a){
 					var js = appContainer.getElementsByTagName("script");
 					var lastscript = null;
 					for(var i=0; i<js.length; i++){
+						var nsync = js[i].getAttribute('async');
 						if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
 							var scriptfile = js[i].getAttribute('src');
-							var nsync = js[i].getAttribute('async');
 							if(nsync != 'true' && lastscript != null)
 								await lastscript;
 							var scriptprom = new Promise(function(resolve, reject){
@@ -675,12 +679,13 @@ var bobblehead = (function(a){
 							});
 							if(nsync != 'true')
 								lastscript = scriptprom;
-						}else
+						}else{
 							try{
 								sandbox.execCode(js[i].innerHTML);
 							}catch(e){
 								BobbleHead.log('Execution of script code', 3, e);
 							}
+						}
 							
 					}
 					var a = appContainer.getElementsByTagName("a");
@@ -707,7 +712,7 @@ var bobblehead = (function(a){
 							}.bind(f[i],context.defaultConnector);
 						}
 					}
-					var modpromises = [];
+					var pageloadpromises = (lastscript == null) ? [] : [lastscript];
 					for(var mod of BobbleHead.ModulePool.getModules()){
 						if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
 							for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
@@ -717,10 +722,10 @@ var bobblehead = (function(a){
 								modpromise.then(function(){
 									e.setAttribute('bbh-manipulating','false');
 								});
-								modpromises.push(modpromise);
+								pageloadpromises.push(modpromise);
 							}
 					}
-					Promise.all(modpromises).then(function(){
+					Promise.all(pageloadpromises).then(function(){
 						document.dispatchEvent(new BobbleHead.PageReadyEvent());
 						appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
 						onSuccess();
@@ -755,10 +760,10 @@ var bobblehead = (function(a){
 					this.checkVirtualPage(vpage);
 					if(vpage.page.keepLive){
 						var hNum = (document.querySelectorAll('*[id^="historyPage-"]').length);
-						this.buildPageFromHistory(hNum - 1, vpage.data, vpage.context, vpage.page.modules, vpage.success, vpage.fail);
+						this.buildPageFromHistory(hNum - 1, vpage.page.path);
 						this.pageHop();
 					}else{
-						this.getNewContainer(toHistory, vpage.page.path);
+						this.getNewContainer(false, vpage.page.path);
 						this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
 						this.pageHop();
 					}
