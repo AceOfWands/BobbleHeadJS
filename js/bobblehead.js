@@ -575,6 +575,40 @@ var bobblehead = (function(a){
 				newdomcontainer.style.float = 'none';
 				document.body.removeChild(document.getElementById("snapPageIframe"));
 			}
+			setDefaultListener(context, container){
+				if(container instanceof Element){
+					if(container.tagName.toUpperCase() == 'A')
+						var a = [container];
+					else
+						var a = container.getElementsByTagName("a");
+					for(var i=0; i<a.length; i++){
+						if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
+						a[i].onclick = function(connector){
+							var req = new BobbleHead.ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
+							connector.request(req);
+						}.bind(a[i],context.defaultConnector);
+					}
+					if(container.tagName.toUpperCase() == 'FORM')
+						var f = [container];
+					else
+						var f = container.getElementsByTagName("form");
+					for(var i=0; i<f.length; i++){
+						if(!f[i].hasAttribute('bbh-ignore')){
+							f[i].onsubmit = function(connector){
+								for(var e of this.querySelectorAll('[name]')){
+									if(!e.checkValidity()){
+										e.reportValidity();
+										return;
+									}
+								}
+								var data = new FormData(this);
+								var req = new BobbleHead.ConnectorRequest(this.getAttribute('method'), this.getAttribute('action'), data);
+								connector.request(req);
+							}.bind(f[i],context.defaultConnector);
+						}
+					}
+				}
+			}
 			getNewContainer(toHistory, prevPageSrc="about:blank"){
 				var domcontainer = document.getElementById(this.container);
 				domcontainer.setAttribute("id", this.container+'-toDelete');
@@ -650,6 +684,16 @@ var bobblehead = (function(a){
 					var appContainer = document.getElementById(this.container);
 					appContainer.innerHTML = Mustache.render(html,
 						{pageData: data, models: BobbleHead.ModelPool.getModels()});
+					var observer = new MutationObserver(function(context, mutationsList){
+						for(var mutation of mutationsList) {
+							if (mutation.type == 'childList') {
+								for(var x of mutation.addedNodes){
+									this.setDefaultListener(context, x);
+								}
+							}
+						}
+					}.bind(this,context));
+					observer.observe(appContainer, { subtree: true, childList: true });
 					
 					var js = appContainer.getElementsByTagName("script");
 					var lastscript = null;
@@ -688,30 +732,7 @@ var bobblehead = (function(a){
 						}
 							
 					}
-					var a = appContainer.getElementsByTagName("a");
-					for(var i=0; i<a.length; i++){
-						if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
-							a[i].onclick = function(connector){
-								var req = new BobbleHead.ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
-								connector.request(req);
-							}.bind(a[i],context.defaultConnector);
-					}
-					var f = appContainer.getElementsByTagName("form");
-					for(var i=0; i<f.length; i++){
-						if(!f[i].hasAttribute('bbh-ignore')){
-							f[i].onsubmit = function(connector){
-								for(var e of this.querySelectorAll('[name]')){
-									if(!e.checkValidity()){
-										e.reportValidity();
-										return;
-									}
-								}
-								var data = new FormData(this);
-								var req = new BobbleHead.ConnectorRequest(this.getAttribute('method'), this.getAttribute('action'), data);
-								connector.request(req);
-							}.bind(f[i],context.defaultConnector);
-						}
-					}
+					this.setDefaultListener(context, appContainer);
 					var pageloadpromises = (lastscript == null) ? [] : [lastscript];
 					for(var mod of BobbleHead.ModulePool.getModules()){
 						if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
