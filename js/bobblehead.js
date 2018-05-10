@@ -583,10 +583,10 @@ var bobblehead = (function(a){
 						var a = container.getElementsByTagName("a");
 					for(var i=0; i<a.length; i++){
 						if(!a[i].hasAttribute('bbh-ignore') && !BobbleHead.Util.isRemoteURIPattern.test(a[i].getAttribute('href')))
-						a[i].onclick = function(connector){
-							var req = new BobbleHead.ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
-							connector.request(req);
-						}.bind(a[i],context.defaultConnector);
+							a[i].onclick = function(connector){
+								var req = new BobbleHead.ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
+								connector.request(req);
+							}.bind(a[i],context.defaultConnector);
 					}
 					if(container.tagName.toUpperCase() == 'FORM')
 						var f = [container];
