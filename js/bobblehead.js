@@ -180,7 +180,7 @@ var bobblehead = (function(a){
 			}
 		},
 		Page: class{
-			constructor(path,vid,lock,configuration = null, modules = null, keepLive = false, allowDuplicate = false, roles = null){
+			constructor(path,vid,lock,configuration = null, modules = null, keepLive = false, allowDuplicate = false, ghostPage = false, roles = null){
 				this.path = path;
 				this.vid = vid;
 				this.lock = lock;
@@ -189,6 +189,7 @@ var bobblehead = (function(a){
 				this.roles = roles;
 				this.keepLive = keepLive;
 				this.allowDuplicate = allowDuplicate;
+				this.ghostPage = ghostPage;
 			}
 		},
 		PageContext: class{
@@ -642,6 +643,8 @@ var bobblehead = (function(a){
 					var page = BobbleHead.PageFactory.getPage(virtualID);
 					if(page){
 						var toHistory = false;
+						if(this.currentPage && this.currentPage.page.ghostPage)
+							this.currentPage = this.pageStack.pop() || null;
 						if(!page.lock && this.currentPage!=null && (page.vid != this.currentPage.page.vid || page.allowDuplicate)){
 							if(this.currentPage.page.keepLive)
 								toHistory = true;
@@ -919,7 +922,8 @@ var bobblehead = (function(a){
 						var newPage = new BobbleHead.Page(p.getAttribute('path'), //pages_path+
 							parseInt(p.getAttribute('vid')),(p.getAttribute('noback')=='true'),confPage, modulesAll,
 							(p.hasAttribute('keepLive')) ? (p.getAttribute('keepLive')=='true') : undefined,
-							(p.hasAttribute('allowDuplicate')) ? (p.getAttribute('allowDuplicate')=='true') : undefined);
+							(p.hasAttribute('allowDuplicate')) ? (p.getAttribute('allowDuplicate')=='true') : undefined,
+							(p.hasAttribute('ghostPage')) ? (p.getAttribute('ghostPage')=='true') : undefined);
 						BobbleHead.PageFactory.addPage(newPage);
 					}
 					BobbleHead.AppController.configuration = new BobbleHead.GenericConfiguration(hold_conf);
