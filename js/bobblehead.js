@@ -587,6 +587,7 @@ var bobblehead = (function(a){
 							a[i].onclick = function(connector){
 								var req = new BobbleHead.ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
 								connector.request(req);
+								return false;
 							}.bind(a[i],context.defaultConnector);
 					}
 					if(container.tagName.toUpperCase() == 'FORM')
@@ -605,6 +606,7 @@ var bobblehead = (function(a){
 								var data = new FormData(this);
 								var req = new BobbleHead.ConnectorRequest(this.getAttribute('method'), this.getAttribute('action'), data);
 								connector.request(req);
+								return false;
 							}.bind(f[i],context.defaultConnector);
 						}
 					}
@@ -643,10 +645,13 @@ var bobblehead = (function(a){
 					var page = BobbleHead.PageFactory.getPage(virtualID);
 					if(page){
 						var toHistory = false;
-						if(this.currentPage && this.currentPage.page.ghostPage)
+						var ghosting = false;
+						if(this.currentPage && this.currentPage.page.ghostPage){
 							this.currentPage = this.pageStack.pop() || null;
+							ghosting = true;
+						}
 						if(!page.lock && this.currentPage!=null && (page.vid != this.currentPage.page.vid || page.allowDuplicate)){
-							if(this.currentPage.page.keepLive)
+							if(!ghosting && this.currentPage.page.keepLive)
 								toHistory = true;
 							this.pageStack.push(this.currentPage);
 						}
@@ -743,9 +748,15 @@ var bobblehead = (function(a){
 								e.setAttribute('bbh-manipulating','true');
 								var sand = new Sandbox(e, context.clone());
 								var modpromise = sand.execMethod('manipulate', [], mod);
-								modpromise.then(function(){
+								if(modpromise !== undefined)
+									if(modpromise instanceof Promise)
+										modpromise.then(function(){
+											e.setAttribute('bbh-manipulating','false');
+										});
+									else
+										throw new BobbleHead.Exceptions.FrameworkException(mod.name+' manipulate has not returned a promise');
+								else
 									e.setAttribute('bbh-manipulating','false');
-								});
 								pageloadpromises.push(modpromise);
 							}
 					}
