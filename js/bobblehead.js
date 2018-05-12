@@ -898,7 +898,13 @@ var bobblehead = (function(a){
 					var temp_configuration = conf.getElementsByTagName('configuration')[0];
 					var hold_conf = {};
 					hold_conf.container = (temp_configuration.getElementsByTagName('container')[0]).textContent;
-					hold_conf.base_url = (temp_configuration.getElementsByTagName('base_url')[0]).textContent;
+					if((temp_configuration.getElementsByTagName('base_url')).length>0)
+						hold_conf.base_url = (temp_configuration.getElementsByTagName('base_url')[0]).textContent;
+					else{
+						var path = document.location.pathname.split('/');
+						path.pop();
+						hold_conf.base_url = document.location.protocol + '//' + document.location.host + path.join('/');
+					}
 					var pageBuilder_conf = (temp_configuration.getElementsByTagName('pageBuilder')[0]);
 					var cache_whitelist = [];
 					var cache_blacklist = [];
