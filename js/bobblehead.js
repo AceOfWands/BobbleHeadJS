@@ -61,7 +61,7 @@ var bobblehead = (function(a){
 			constructor(method,uri,data,headers = {}){
 				this.method = method;
 				this.uri = uri;
-				if(data instanceof FormData)
+				if(data != null)
 					this.setData(data)
 				else
 					this.data = null;
@@ -365,7 +365,7 @@ var bobblehead = (function(a){
 					for(var header of request.getHeaders())
 						xhttp.setRequestHeader(header.name, header.value);
 					xhttp.responseType = 'json';
-					xhttp.onreadystatechange = function(){
+					xhttp.onreadystatechange = async function(){
 						var res = new BobbleHead.Response();
 						if(xhttp.readyState === XMLHttpRequest.DONE){
 							var response = null;
@@ -373,8 +373,13 @@ var bobblehead = (function(a){
 							res.status = xhttp.status;
 							if(xhttp.status !== 200) {
 								var statusType = Math.floor(xhttp.status/100);
-								if(statusType!=4)
+								if(statusType!=4){
 									response = BobbleHead.Cacher.getCached(request);
+									if(response instanceof Promise){
+										var promise_hold = response;
+										response = await promise_hold;
+									}									
+								}
 								if(!response){
 									res.code = -10;
 									res.content = {'error':'Connection Error'};
@@ -424,23 +429,15 @@ var bobblehead = (function(a){
 						if(cacheMap)
 							BobbleHead.Cacher.cacheMap = cacheMap;
 						else{
-							BobbleHead.Cacher.cacheMap = {'_id':'cacheMap'};
+							BobbleHead.Cacher.cacheMap = {'_id':'cacheMap', 'length':0};
 							BobbleHead.log('Cacher',0,'Cacher map not found');
 						}
-						
 						db.get('cacheHeap').then(function(cacheHeap) {
 							if(cacheHeap){
 								var holdNodeArray = [];
 								for(var i in cacheHeap.array){
 									var _val = (cacheHeap.array[i]).value;
-									var form_data = null;
-									if(_val.data != null){
-										form_data = new FormData();
-										for(var key in _val.data){
-											form_data.append(key, _val.data[key]);
-										}
-									}
-									var val = new BobbleHead.CacherRequest(_val.method,_val.uri,form_data,_val.headers);
+									var val = new BobbleHead.CacherRequest(_val.method,_val.uri,_val.data,_val.headers);
 									holdNodeArray.push(new BobbleHead.Util.HeapNode((cacheHeap.array[i]).key, val));
 								}
 								var rev = cacheHeap._rev;
@@ -470,7 +467,7 @@ var bobblehead = (function(a){
 							resolve();
 						});
 					}).catch(function(err) {
-						BobbleHead.Cacher.cacheMap = {'_id':'cacheMap'};
+						BobbleHead.Cacher.cacheMap = {'_id':'cacheMap', 'length':0};
 						BobbleHead.Cacher.cacheHeap = new BobbleHead.Util.ReverseHeap();
 						BobbleHead.Cacher.cacheHeap._id = 'cacheHeap';
 						BobbleHead.log('Cacher map not found', 1, err);
@@ -484,37 +481,72 @@ var bobblehead = (function(a){
 					BobbleHead.log(e);
 				});
 			}
+			static parseUri(uri){
+				var parsed_uri = btoa(uri);
+				var toTrim = 0;
+				for(var i = (parsed_uri.length -1); i>=0; i--)
+					if(parsed_uri[i] == '=')
+						toTrim++;
+					else
+						break;
+				if(toTrim>0)
+					return parsed_uri.substring(0, parsed_uri.length - toTrim);
+				else
+					return parsed_uri;
+			}
 			static cache(request, response){
 				var hold_request = request.toCacherRequest();
 				var cache_converted_request_func = function(response, obj){
 					var request = obj.pop();
 					if(BobbleHead.Cacher.blacklist.indexOf(request.uri) == -1){
 						var db = BobbleHead.Database.getInstance();
+						var parsed_uri = BobbleHead.Cacher.parseUri(request.uri);
+						var found = -1;
 						if(BobbleHead.Cacher.cacheMap[request.method] &&
-							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] &&
-							BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))]){
-								var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
-								var incNodeFunc = function(db, ele){
-									ele.incKey();
-									BobbleHead.Cacher.cacheHeap.reheap();
-									db.put(BobbleHead.Cacher.cacheHeap,{rev: true}).then(function (response) {
-										BobbleHead.Cacher.cacheHeap._rev = response.rev;
-										BobbleHead.log('Saved Cacher heap', 0, response);
-									}).catch(function (err) {
-										BobbleHead.log('Cannot save Cacher heap', 1, err);
-									});
-									BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
+							BobbleHead.Cacher.cacheMap[request.method][parsed_uri]){
+								for(var i in BobbleHead.Cacher.cacheMap[request.method][parsed_uri]){
+									if(!(BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][0] instanceof BobbleHead.CacherRequest))
+										BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][0] = BobbleHead.CacherRequest.fromObject(BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][0]);
+									if(request.equal(BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][0])){
+										found = i;
+										break;
+									}
 								}
-								if(hold instanceof Promise)
-									hold.then(incNodeFunc.bind(this, db));
-								else
-									incNodeFunc(db, hold);
+						}
+						if(found != -1){
+							var hold = BobbleHead.Cacher.cacheHeap.findByValue(request);
+							var incNodeFunc = function(db, ele){
+								ele.incKey();
+								BobbleHead.Cacher.cacheHeap.reheap();
+								db.put(BobbleHead.Cacher.cacheHeap,{rev: true}).then(function (response) {
+									BobbleHead.Cacher.cacheHeap._rev = response.rev;
+									BobbleHead.log('Saved Cacher heap', 0, response);
+								}).catch(function (err) {
+									BobbleHead.log('Cannot save Cacher heap', 1, err);
+								});
+								BobbleHead.Cacher.cacheMap[request.method][parsed_uri][found][1] = response;
+							}
+							if(hold instanceof Promise)
+								hold.then(incNodeFunc.bind(this, db));
+							else
+								incNodeFunc(db, hold);
 						}else{
 							if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxCached)
 								for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
 									var hold = BobbleHead.Cacher.cacheHeap.pop();
 									var reqToDel = hold.getValue();
-									delete BobbleHead.Cacher.cacheMap[reqToDel.method][btoa(reqToDel.uri)][md5(JSON.stringify(reqToDel.data))];
+									var parsed_toDelUri = BobbleHead.Cacher.parseUri(reqToDel.uri);
+									for(var j = (BobbleHead.Cacher.cacheMap[reqToDel.method][parsed_toDelUri]).length; j>0; j--){
+										var _req = (BobbleHead.Cacher.cacheMap[reqToDel.method][parsed_toDelUri]).shift();
+										if(!reqToDel.equal(_req[0])){
+											if(!(_req[0] instanceof BobbleHead.CacherRequest))
+												_req[0] = BobbleHead.CacherRequest.fromObject(_req[0]);
+											(BobbleHead.Cacher.cacheMap[reqToDel.method][parsed_toDelUri]).push(_req);
+										}else{
+											BobbleHead.Cacher.cacheMap.length--;
+											break;
+										}
+									}
 								}
 							if(BobbleHead.Cacher.whitelist.indexOf(request.uri) == -1){
 								var node = new BobbleHead.Util.HeapNode(1,request);
@@ -528,15 +560,16 @@ var bobblehead = (function(a){
 							}
 							if(!BobbleHead.Cacher.cacheMap[request.method])
 								BobbleHead.Cacher.cacheMap[request.method] = {};
-							if(!BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
-								BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)] = {};
-								BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))] = response;
-								db.put(BobbleHead.Cacher.cacheMap,{rev: true}).then(function (response) {
-									BobbleHead.Cacher.cacheMap._rev = response.rev;
-									BobbleHead.log('Saved Cacher map', 0, response);
-								}).catch(function (err) {
-									BobbleHead.log('Cannot save Cacher map', 1, err);
-								});
+							if(!BobbleHead.Cacher.cacheMap[request.method][parsed_uri])
+								BobbleHead.Cacher.cacheMap[request.method][parsed_uri] = [];
+							(BobbleHead.Cacher.cacheMap[request.method][parsed_uri]).push([request, response]);
+							BobbleHead.Cacher.cacheMap.length++;
+							db.put(BobbleHead.Cacher.cacheMap,{rev: true}).then(function (response) {
+								BobbleHead.Cacher.cacheMap._rev = response.rev;
+								BobbleHead.log('Saved Cacher map', 0, response);
+							}).catch(function (err) {
+								BobbleHead.log('Cannot save Cacher map', 1, err);
+							});
 						}
 					}
 				};
@@ -546,10 +579,31 @@ var bobblehead = (function(a){
 					(cache_converted_request_func.bind(this))(response, [hold_request]);
 			}
 			static getCached(request){
+				var parsed_uri = BobbleHead.Cacher.parseUri(request.uri);
+				var promises = [];
 				if(BobbleHead.Cacher.cacheMap[request.method] &&
-					BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)])
-					return BobbleHead.Cacher.cacheMap[request.method][btoa(request.uri)][md5(JSON.stringify(request.data))];
-				return null;
+					BobbleHead.Cacher.cacheMap[request.method][parsed_uri])
+					for(var i in BobbleHead.Cacher.cacheMap[request.method][parsed_uri]){
+						if(!(BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][0] instanceof BobbleHead.CacherRequest))
+							BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][0] = BobbleHead.CacherRequest.fromObject(BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][0]);
+						var compareResult = request.equal(BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][0]);
+						if(compareResult instanceof Promise)
+							promises.push(compareResult.then(function(_method, _uri, _i, flag){
+								if(flag)
+									return this[_method][_uri][_i][1];
+								return null;
+							}.bind(BobbleHead.Cacher.cacheMap, request.method, parsed_uri, i)));
+						else if(compareResult == true)
+							return BobbleHead.Cacher.cacheMap[request.method][parsed_uri][i][1];
+					}
+				if(promises.length > 0)
+					return Promise.all(promises).then(function(response){
+						for(var i=0; i<response.length; i++)
+							if(response[i] != null)
+								return response[i];
+					});
+				else
+					return null;
 			}
 		},
 		PageBuilder: class {
@@ -1322,13 +1376,19 @@ var bobblehead = (function(a){
 			return r;
 		}
 		setData(a,b = null){
-			if(a instanceof FormData){
-				this.data = a;
-			}else if(b != null && (typeof a === "string")){
-				if(this.data == null)
-					this.data = new FormData();
-				this.data.set(a,b);
-			}
+			if(a == null)
+				this.data = null;
+			else
+				if(a instanceof FormData){
+					this.data = a;
+				}else if(b != null && (typeof a === "string")){
+					if(this.data == null)
+						this.data = new FormData();
+					this.data.set(a,b);
+				}else{
+					for(var p in a)
+						this.setData(p, a[p]);
+				}
 		}
 		equal(x){
 			if(!(x instanceof BobbleHead.Request)) return false;
@@ -1399,7 +1459,8 @@ var bobblehead = (function(a){
 				if(this.data == null)
 					this.data = {};
 				this.data[a] = b;
-			}
+			}else
+				this.data = a;
 		}
 		toRequest(){
 			var toData = null;
@@ -1409,6 +1470,11 @@ var bobblehead = (function(a){
 					toData.append(x, this.data[x]);
 			}
 			return new BobbleHead.ConnectorRequest(this.method,this.uri,toData,this.headers);
+		}
+		static fromObject(obj){
+			if(('method' in obj) && ('uri' in obj) && ('data' in obj))
+				return new BobbleHead.CacherRequest(obj.method,obj.uri,obj.data,obj.headers || undefined);
+			return null;
 		}
 		equal(x){
 			if(!(x instanceof BobbleHead.Request)) return false;
