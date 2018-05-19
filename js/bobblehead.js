@@ -965,13 +965,16 @@ var bobblehead = (function(a){
 					var cache_maxcached = 1000;
 					var cacher_conf = (temp_configuration.getElementsByTagName('cacher')[0]);
 					if(cacher_conf){
-						cache_maxcached = parseInt(cacher_conf.getAttribute('max-cached'));
-						for( var b of cacher_conf.getElementsByTagName('block')){
-							cache_blacklist.push(b.getAttribute('url'));
-						}
-						for( var p of cacher_conf.getElementsByTagName('persist')){
-							cache_whitelist.push(p.getAttribute('url'));
-						}
+						if(cacher_conf.getAttribute('max-cached'))
+							cache_maxcached = parseInt(cacher_conf.getAttribute('max-cached'));
+						if(cacher_conf.getElementsByTagName('block'))
+							for( var b of cacher_conf.getElementsByTagName('block')){
+								cache_blacklist.push(b.getAttribute('url'));
+							}
+						if(cacher_conf.getElementsByTagName('persist'))
+							for( var p of cacher_conf.getElementsByTagName('persist')){
+								cache_whitelist.push(p.getAttribute('url'));
+							}
 					}
 					var cacher_promise = BobbleHead.Cacher.init(cache_maxcached, cache_whitelist, cache_blacklist);
 					var page_container = temp_configuration.getElementsByTagName('pages')[0];
