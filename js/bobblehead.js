@@ -526,10 +526,8 @@ var bobblehead = (function(a){
 								});
 								BobbleHead.Cacher.cacheMap[request.method][parsed_uri][found][1] = response;
 							}
-							if(hold instanceof Promise)
-								hold.then(incNodeFunc.bind(this, db));
-							else
-								incNodeFunc(db, hold);
+							if(hold!=null)
+								hold.then(incNodeFunc.bind(this, db)).catch(function(){BobbleHead.log('URL in whitelist', 0, 'Cannot retrive node from Cacher heap')});
 						}else{
 							if(BobbleHead.Cacher.cacheMap.length > BobbleHead.Cacher.maxCached)
 								for(var i = BobbleHead.Cacher.nodesPartNum; i>0; i--){
