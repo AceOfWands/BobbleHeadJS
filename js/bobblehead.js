@@ -946,9 +946,9 @@ var bobblehead = (function(a){
 			}
 			processConf(conf){
 				if(!conf) return;
+				var hold_conf = {};
 				try{
 					var temp_configuration = conf.getElementsByTagName('configuration')[0];
-					var hold_conf = {};
 					hold_conf.container = (temp_configuration.getElementsByTagName('container')[0]).textContent;
 					if((temp_configuration.getElementsByTagName('base_url')).length>0)
 						hold_conf.base_url = (temp_configuration.getElementsByTagName('base_url')[0]).textContent;
@@ -1118,6 +1118,7 @@ var bobblehead = (function(a){
 					}.bind(this));
 				}catch(e){
 					BobbleHead.log(e);
+					throw new BobbleHead.Errors.NotSupportedEngineError();
 				}
 			}
 			static getConf(name){
@@ -1154,7 +1155,6 @@ var bobblehead = (function(a){
 					xmlDoc.loadXML(txt);
 				}
 				return xmlDoc;
-				//return this.parseXML(xmlDoc);
 			}
 		},
 		Context: class{
@@ -1179,6 +1179,14 @@ var bobblehead = (function(a){
 			FrameworkException: class{
 				constructor(message){
 					this.name = 'FrameworkException';
+					this.message = message;
+				}
+			}
+		},
+		Errors: {
+			FrameworkError: class{
+				constructor(message){
+					this.name = 'FrameworkError';
 					this.message = message;
 				}
 			}
@@ -1585,6 +1593,11 @@ var bobblehead = (function(a){
 	BobbleHead.Exceptions.InvalidRouteException = class extends BobbleHead.Exceptions.FrameworkException{};
 	BobbleHead.Exceptions.ControllerNotFoundException = class extends BobbleHead.Exceptions.FrameworkException{};
 	BobbleHead.Exceptions.InvalidAuthenticationMethodException = class extends BobbleHead.Exceptions.FrameworkException{};
+	BobbleHead.Errors.NotSupportedEngineError = class extends BobbleHead.Errors.FrameworkError{
+		constructor(){
+			super('Current Javascript Engine doesn\'t support the framework.');
+		}
+	};
 	//Events
 	BobbleHead.CacherLoadedEvent = class extends BobbleHead.FrameworkEvent{
 		constructor(data = null){
