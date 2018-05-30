@@ -739,11 +739,11 @@ window.bobblehead = (function(a){
 					eleIds[i].id = (eleIds[i].id).substring(0, (eleIds[i].id).length - toTrim);
 				}
 			}
-			async buildPageByText(html, data, sandbox, modulesToLoad, onSuccess, onFailure){
+			async buildPageByText(html, data, configuration, sandbox, modulesToLoad, onSuccess, onFailure){
 					var context = BobbleHead.Context.getGlobal();
 					var appContainer = document.getElementById(this.container);
 					appContainer.innerHTML = Mustache.render(html,
-						{pageData: data, models: BobbleHead.ModelPool.getModels()});
+						{pageData: data, models: BobbleHead.ModelPool.getModels(), pageConf: configuration.properties});
 					var observer = new MutationObserver(function(context, mutationsList){
 						for(var mutation of mutationsList) {
 							if (mutation.type == 'childList') {
@@ -823,13 +823,13 @@ window.bobblehead = (function(a){
 					this.checkPage(page);
 					var xhttp = new XMLHttpRequest();
 					xhttp.open("GET", page.path, true);
-					xhttp.onreadystatechange = async function(data, sandbox, modulesToLoad, onSuccess, onFailure){
+					xhttp.onreadystatechange = async function(data, configuration, sandbox, modulesToLoad, onSuccess, onFailure){
 						if(xhttp.readyState === XMLHttpRequest.DONE && xhttp.status === 404)
 							onFailure(new BobbleHead.Exceptions.PageNotFoundException());
 						else if(xhttp.readyState === XMLHttpRequest.DONE){
-							this.buildPageByText(xhttp.response, data, sandbox, modulesToLoad, onSuccess, onFailure);
+							this.buildPageByText(xhttp.response, data, configuration, sandbox, modulesToLoad, onSuccess, onFailure);
 						}
-					}.bind(this, data, pageContext, page.modules, onSuccess, onFailure);
+					}.bind(this, data, page.configuration, pageContext, page.modules, onSuccess, onFailure);
 					xhttp.send(null);
 				}catch(e){
 					onFailure(e);

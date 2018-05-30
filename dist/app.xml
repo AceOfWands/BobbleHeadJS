@@ -8,7 +8,7 @@
 				<start_test>Success</start_test>
 			</data>
 		</index>
-		<page vid="1" noback="false" modulesAllowed="test" path="test.html">
+		<page vid="1" noback="false" modulesAllowed="test" keepLive="true" allowDuplicate="true" path="test.html">
 			<configuration>
 				<test>Success</test>
 			</configuration>
