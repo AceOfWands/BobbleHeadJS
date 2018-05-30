@@ -6,5 +6,8 @@ module.exports = {
 	output: {
 		filename: 'bobblehead.js',
 		path: path.resolve(__dirname, 'dist', 'js')
-	}
+	},
+    plugins: [
+      new webpack.optimize.UglifyJsPlugin()
+    ]
 };
