@@ -5,12 +5,12 @@
 	<pages path="./pages/">
 		<index vid="1">
 			<data>
-				<test>Success</test>
+				<start_test>Success</start_test>
 			</data>
 		</index>
-		<page vid="1" noback="1" modulesAllowed="test" path="test.html">
+		<page vid="1" noback="false" modulesAllowed="test" path="test.html">
 			<configuration>
-				<test>123</test>
+				<test>Success</test>
 			</configuration>
 		</page>
 	</pages>
