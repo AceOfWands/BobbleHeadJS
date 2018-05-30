@@ -1,6 +1,6 @@
 <configuration>
 	<version>0.0.1</version>
-	<base_url>http://localhost/BobbleHeadCMS/</base_url>
+	<base_url>http://localhost/BobbleHeadCMS/dist</base_url>
 	<container>app-content</container>
 	<pages path="./pages/">
 		<index vid="1">
@@ -15,11 +15,6 @@
 		</page>
 	</pages>
 	<modules path="./modules/">
-		<module path="restwadl/main.js" enabled="true">
-			<configuration>
-				<test>123456</test>
-			</configuration>
-		</module>
 		<module path="test/main.js" enabled="true">
 			<configuration>
 				<test>123456</test>

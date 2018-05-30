@@ -1,0 +1,17 @@
+{
+  "name": "bobblehead",
+  "version": "1.0.0",
+  "description": "BobbleHead CMS is a pure-Javascript CMS for cross-platform cross-device client-side applications",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": { "name" : "Andrea Postiglione", "email" : "andrea0postiglione@gmail.com" },
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "webpack": "^4.10.1",
+    "webpack-cli": "^2.1.4"
+  },
+  "dependencies": {}
+}

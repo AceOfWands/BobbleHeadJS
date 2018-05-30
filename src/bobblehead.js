@@ -1,6 +1,6 @@
 'use strict';
 
-var bobblehead = (function(a){
+window.bobblehead = (function(a){
 	a.BobbleHead = {
 		UserPool: class{
 			static getUser(username){
