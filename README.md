@@ -8,18 +8,21 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
 ![webpack](https://img.shields.io/badge/webpack-v4.10.1-orange.svg) 
 [![GitHub license](https://img.shields.io/github/license/AndXD/BobbleHeadCMS.svg)](https://github.com/AndXD/BobbleHeadCMS/blob/master/LICENSE)
 
+## Features
+- Page Managing
+- Self-Caching for Offline Usage
+- Pages Access Control
+- Page Code Execution Isolation
+- Custom URL Managing
+- Default Network Communication
+- Cross-device
+- Cross-platform
 
-## Project Status
+## Todo List
 - ### CMS Core
-  - [x] Access Menaging
-  - [x] Page Loding
-  - [x] Database (delegated to PouchDB)
-  - [x] Cacher
-  - [x] Router
-  - [x] AppController (application configuration reader)
-  - [x] Internal / External Communicator
-  - [x] Modules Controller and DOM Manipulation
-  - [x] Event Trigging
+  - [ ] Multiple Page Hop
+  - [ ] Asynchronous models
+  - [ ] Implement User roles for AccessController
 - ### Simple Rest Models Generator (moved to new repository)
   - [ ] Models generator
 - ### Rest - WADL Communicator (moved to new repository)
@@ -33,5 +36,6 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
 - mustache.js [homepage](http://mustache.github.io/)
 - md5-jkmyers [github](https://github.com/AndreasPizsa/md5-jkmyers)
+- JS-Sandbox [github](https://github.com/AndXD/JS-Sandbox)
 
 ## Basic Usage
