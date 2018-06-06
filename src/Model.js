@@ -2,7 +2,9 @@ export default class Model{
 	constructor(name){
 		this.name = name;
 	}
-	get(proprietes){}
+	fetch(id){}
+	get(id){}
+	search(properties){}
 	update(instance){}
 	save(instance){}
 	destroy(instance){}

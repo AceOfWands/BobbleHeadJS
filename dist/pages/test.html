@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>HTML5 Test Page</title>
+		<title>Test Page</title>
 	</head>
 	<body>
 		<div bbh-module="test">
@@ -15,6 +15,7 @@
 			<li>Index Test: {{#pageData.start_test}}{{.}}{{/pageData.start_test}}{{^pageData.start_test}}Not Tested{{/pageData.start_test}}</li>
 			<li>Configuration Test: {{#pageConf.test}}{{.}}{{/pageConf.test}}{{^pageConf.test}}Fail{{/pageConf.test}}</li>
 		</ul>
+		<p>Test Model: {{models.testModel.345.result}}</p>
 		<a href="app://page/back" >Back</a>
 		<p>Test Form: {{#pageData.testForm}}{{.}}{{/pageData.testForm}}{{^pageData.testForm}}Not Tested{{/pageData.testForm}}</p><br>
 		<form method="post" action="app://page/1">

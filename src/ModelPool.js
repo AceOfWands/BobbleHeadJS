@@ -9,7 +9,13 @@ export default class ModelPool{
 	}
 	static addModel(model){
 		try{
-			ModelPool.models[model.name] = model;
+			ModelPool.models[model.name] = new Proxy(model, {
+				get: function(obj, prop) {
+					return prop in obj ?
+						obj[prop] :
+						obj.get(prop);
+				}
+			});
 		}catch(e){
 			log(e);
 		}

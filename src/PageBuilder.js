@@ -8,6 +8,7 @@ import ModulePool from './ModulePool.js';
 import PageNotFoundException from './Exceptions/PageNotFoundException.js';
 import RedirectException from './Exceptions/RedirectException.js';
 import FrameworkException from './Exceptions/FrameworkException.js';
+import ModelNotFoundException from './Exceptions/ModelNotFoundException.js';
 import Mustache from 'mustache';
 import {log, defaultCallback, isRemoteURIPattern} from './Util.js';
 
@@ -146,84 +147,111 @@ export default class PageBuilder{
 			eleIds[i].id = (eleIds[i].id).substring(0, (eleIds[i].id).length - toTrim);
 		}
 	}
-	async buildPageByText(html, data, configuration, sandbox, modulesToLoad, onSuccess, onFailure){
+	buildPageByText(html, data, configuration, sandbox, modulesToLoad, onSuccess, onFailure){
 			var context = Context.getGlobal();
 			var appContainer = document.getElementById(this.container);
-			appContainer.innerHTML = Mustache.render(html,
-				{pageData: data, models: ModelPool.getModels(), pageConf: configuration.properties});
-			var observer = new MutationObserver(function(context, mutationsList){
-				for(var mutation of mutationsList) {
-					if (mutation.type == 'childList') {
-						for(var x of mutation.addedNodes){
-							this.setDefaultListener(context, x);
+			var tks_queue = [];
+			for(var tks of Mustache.parse(html))
+				if(tks[0]!='text')
+					tks_queue.push(tks);
+			var wait_list = [];
+			var actual_models = ModelPool.getModels();
+			while(tks_queue.length>0){
+				var tks = tks_queue.shift();
+				if(tks[4] instanceof Array)
+					for(var _tks of tks[4])
+						if(_tks[0]!='text')
+							tks_queue.push(_tks);
+				if(tks[1].startsWith('models.')){
+					var model = tks[1].split('.');
+					if(!actual_models[model[1]])
+						throw new ModelNotFoundException(model[1]);
+					try{
+						var model_fetch = actual_models[model[1]].fetch(model[2]);
+						if(model_fetch instanceof Promise)
+							wait_list.push(model_fetch);
+					}catch(e){
+						throw new FrameworkException('Invalid access to models by Mustache on page.');
+					}
+				}
+			}
+			Promise.all(wait_list).then(async function(){
+				appContainer.innerHTML = Mustache.render(html,
+					{pageData: data, models: actual_models, pageConf: configuration.properties});
+				var observer = new MutationObserver(function(context, mutationsList){
+					for(var mutation of mutationsList) {
+						if (mutation.type == 'childList') {
+							for(var x of mutation.addedNodes){
+								this.setDefaultListener(context, x);
+							}
 						}
 					}
-				}
-			}.bind(this,context));
-			observer.observe(appContainer, { subtree: true, childList: true });
-			
-			var js = appContainer.getElementsByTagName("script");
-			var lastscript = null;
-			for(var i=0; i<js.length; i++){
-				var nsync = js[i].getAttribute('async');
-				if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
-					var scriptfile = js[i].getAttribute('src');
-					if(nsync != 'true' && lastscript != null)
-						await lastscript;
-					var scriptprom = new Promise(function(resolve, reject){
-						var xhttp2 = new XMLHttpRequest();
-						xhttp2.open('get', scriptfile, true);
-						xhttp2.responseType = 'text';
-						xhttp2.onreadystatechange = function(sandbox,sf){
-							if(xhttp2.readyState === XMLHttpRequest.DONE){
-								try{
-									sandbox.execCode(xhttp2.response);
-								}catch(e){
-									log('Execution of scriptfile: '+sf, 3, e);
+				}.bind(this,context));
+				observer.observe(appContainer, { subtree: true, childList: true });
+				
+				var js = appContainer.getElementsByTagName("script");
+				var lastscript = null;
+				for(var i=0; i<js.length; i++){
+					var nsync = js[i].getAttribute('async');
+					if(js[i].getAttribute('src')!="" && js[i].getAttribute('src')!=null){
+						var scriptfile = js[i].getAttribute('src');
+						if(nsync != 'true' && lastscript != null)
+							await lastscript;
+						var scriptprom = new Promise(function(resolve, reject){
+							var xhttp2 = new XMLHttpRequest();
+							xhttp2.open('get', scriptfile, true);
+							xhttp2.responseType = 'text';
+							xhttp2.onreadystatechange = function(sandbox,sf){
+								if(xhttp2.readyState === XMLHttpRequest.DONE){
+									try{
+										sandbox.execCode(xhttp2.response);
+									}catch(e){
+										log('Execution of scriptfile: '+sf, 3, e);
+									}
+									resolve();
 								}
-								resolve();
-							}
-						}.bind(this,sandbox,scriptfile);
-						xhttp2.send();
-					}).catch(function(e) {
-						log(e);
-					});
-					if(nsync != 'true')
-						lastscript = scriptprom;
-				}else{
-					try{
-						sandbox.execCode(js[i].innerHTML);
-					}catch(e){
-						log('Execution of script code', 3, e);
+							}.bind(this,sandbox,scriptfile);
+							xhttp2.send();
+						}).catch(function(e) {
+							log(e);
+						});
+						if(nsync != 'true')
+							lastscript = scriptprom;
+					}else{
+						try{
+							sandbox.execCode(js[i].innerHTML);
+						}catch(e){
+							log('Execution of script code', 3, e);
+						}
 					}
+						
 				}
-					
-			}
-			this.setDefaultListener(context, appContainer);
-			var pageloadpromises = (lastscript == null) ? [] : [lastscript];
-			for(var mod of ModulePool.getModules()){
-				if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
-					for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
-						e.setAttribute('bbh-manipulating','true');
-						var sand = new Sandbox(e, context.clone());
-						var modpromise = sand.execMethod('manipulate', [], mod);
-						if(modpromise !== undefined)
-							if(modpromise instanceof Promise)
-								modpromise.then(function(){
-									e.setAttribute('bbh-manipulating','false');
-								});
+				this.setDefaultListener(context, appContainer);
+				var pageloadpromises = (lastscript == null) ? [] : [lastscript];
+				for(var mod of ModulePool.getModules()){
+					if(modulesToLoad != null && modulesToLoad.indexOf(mod.name)>-1)
+						for(var e of appContainer.querySelectorAll('[bbh-module*="'+mod.name+'"]')){
+							e.setAttribute('bbh-manipulating','true');
+							var sand = new Sandbox(e, context.clone());
+							var modpromise = sand.execMethod('manipulate', [], mod);
+							if(modpromise !== undefined)
+								if(modpromise instanceof Promise)
+									modpromise.then(function(){
+										e.setAttribute('bbh-manipulating','false');
+									});
+								else
+									throw new FrameworkException(mod.name+' manipulate has not returned a promise');
 							else
-								throw new FrameworkException(mod.name+' manipulate has not returned a promise');
-						else
-							e.setAttribute('bbh-manipulating','false');
-						pageloadpromises.push(modpromise);
-					}
-			}
-			Promise.all(pageloadpromises).then(function(){
-				document.dispatchEvent(new BobbleHead.PageReadyEvent());
-				appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
-				onSuccess();
-			});
+								e.setAttribute('bbh-manipulating','false');
+							pageloadpromises.push(modpromise);
+						}
+				}
+				Promise.all(pageloadpromises).then(function(){
+					document.dispatchEvent(new BobbleHead.PageReadyEvent());
+					appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
+					onSuccess();
+				});
+			}.bind(this));
 	}
 	buildPageByObject(page, data, pageContext, onSuccess = defaultCallback, onFailure = defaultCallback){
 		try{
