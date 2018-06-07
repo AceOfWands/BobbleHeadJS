@@ -11,6 +11,7 @@ import FrameworkException from './Exceptions/FrameworkException.js';
 import ModelNotFoundException from './Exceptions/ModelNotFoundException.js';
 import Mustache from 'mustache';
 import {log, defaultCallback, isRemoteURIPattern} from './Util.js';
+import './Style/Pages.css';
 
 export default class PageBuilder{
 	constructor(){
@@ -18,6 +19,7 @@ export default class PageBuilder{
 		this.container = null;
 		this.documentProxy = null;
 		this.currentPage = null;
+		this.transition = null;
 	}
 	checkPage(page){
 		var context = Context.getGlobal();
@@ -29,12 +31,7 @@ export default class PageBuilder{
 	}
 	pageHop(){
 		var newdomcontainer = document.getElementById(this.container);
-		for(var i = 100; i>=0; i--){
-			newdomcontainer.style.left = i+'%';
-		}
-		newdomcontainer.style.position = '';
-		newdomcontainer.style.float = 'none';
-		document.body.removeChild(document.getElementById("snapPageIframe"));
+		newdomcontainer.classList.remove('bbh-new');
 	}
 	setDefaultListener(context, container){
 		if(container instanceof Element){
@@ -72,33 +69,99 @@ export default class PageBuilder{
 			}
 		}
 	}
-	getNewContainer(toHistory, prevPageSrc="about:blank"){
+	makeTransition(domcontainer, newdomcontainer, transition){
+		var erase_prom = null;
+		if(transition == 'vanish'){
+			newdomcontainer.classList.add('bbh-vanish');
+			newdomcontainer.classList.add('bbh-hide');
+			window.getComputedStyle(newdomcontainer).opacity;
+			erase_prom = new Promise(function(resolve, reject){
+				domcontainer.classList.add('bbh-vanish');
+				window.getComputedStyle(domcontainer).opacity;
+				domcontainer.addEventListener("transitionend",
+					transitionend_func = (() => {
+						domcontainer.removeEventListener("transitionend",transitionend_func);
+						resolve();
+					})
+				);
+				domcontainer.classList.add('bbh-hide');
+				var transitionend_func = null;
+			});
+		}else if(transition == 'slide'){
+			domcontainer.classList.add('bbh-slide-under');
+			newdomcontainer.classList.remove('bbh-slide-under');
+			newdomcontainer.classList.add('bbh-slide');
+			newdomcontainer.classList.add('bbh-hide');
+			newdomcontainer.style.display = 'block';
+			window.getComputedStyle(domcontainer).height;
+			erase_prom = new Promise(function(resolve, reject){
+				var transitionend_func = null;
+				newdomcontainer.addEventListener("transitionend",
+					transitionend_func = (() => {
+						newdomcontainer.removeEventListener("transitionend",transitionend_func);
+						newdomcontainer.classList.remove('bbh-slide');
+						resolve();
+					})
+				);
+				newdomcontainer.classList.remove('bbh-hide');
+			});
+		}
+		var pagehop_ready_func = null;
+		newdomcontainer.addEventListener("pageready",
+			pagehop_ready_func = function(){
+				if(transition == 'vanish'){
+					newdomcontainer.classList.remove('bbh-hide');
+				}
+				newdomcontainer.removeEventListener("pageready", pagehop_ready_func);
+			}
+		);
+		return erase_prom;
+	}
+	waitNremove(promise, toRemove){
+		if(promise){
+			var eleIds = toRemove.querySelectorAll('*[id]');
+			for(var i = 0; i<eleIds.length; i++){
+				eleIds[i].id += '-toDelete';
+			}
+			promise = promise.then(function(){
+				document.body.removeChild(toRemove);
+			}).catch(function(){
+				document.body.removeChild(toRemove);
+			});
+		}else
+			document.body.removeChild(toRemove);
+		return promise;
+	}
+	getNewContainer(toHistory){
 		var domcontainer = document.getElementById(this.container);
 		domcontainer.setAttribute("id", this.container+'-toDelete');
 		var newdomcontainer = document.createElement("div");
 		newdomcontainer.setAttribute("id", this.container);
-		newdomcontainer.style.left = '100%';
-		newdomcontainer.style.width = '100%';
-		newdomcontainer.style.float = 'left';
-		newdomcontainer.style.position = 'absolute';
+		newdomcontainer.classList.add('bbh-page');
+		newdomcontainer.classList.add('bbh-new');
 		document.body.appendChild(newdomcontainer);
-		var newIframe = document.createElement('iframe');
-		newIframe.id = "snapPageIframe";
-		newIframe.width = '100%';newIframe.height = '100%';
-		newIframe.src = prevPageSrc;
-		document.body.appendChild(newIframe);
-		if(!toHistory)
-			document.body.removeChild(domcontainer);
-		else{
-			var hNum = (document.querySelectorAll('*[id^="historyPage-"]').length);
-			domcontainer.setAttribute('id', 'historyPage-'+hNum);
-			domcontainer.style.display = 'none';
-			var eleIds = domcontainer.querySelectorAll('*[id]');
-			for(var i = 0; i<eleIds.length; i++){
-				eleIds[i].id += '-history'+hNum;
+		var erase_prom = this.makeTransition(domcontainer, newdomcontainer, this.transition);
+		if(!toHistory){
+			this.waitNremove(erase_prom, domcontainer);
+		}else{
+			var moveToHistory_func = function(){
+				var hNum = (document.querySelectorAll('*[id^="historyPage-"]').length);
+				domcontainer.setAttribute('id', 'historyPage-'+hNum);
+				domcontainer.style.display = 'none';
+				var eleIds = domcontainer.querySelectorAll('*[id]');
+				for(var i = 0; i<eleIds.length; i++){
+					eleIds[i].id += '-history'+hNum;
+				}
 			}
+			if(erase_prom)
+				erase_prom = erase_prom.then(moveToHistory_func);
+			else
+				moveToHistory_func();
 		}
-		return newdomcontainer;
+		if(!erase_prom)
+			return newdomcontainer;
+		else
+			return erase_prom.then(() => {return newdomcontainer});
 	}
 	buildPage(virtualID, data){
 		return new Promise(function(resolve, reject) {
@@ -117,12 +180,18 @@ export default class PageBuilder{
 				}
 				if(page.lock)
 					this.pageStack = [];
-				var domcontainer = this.getNewContainer(toHistory, (this.currentPage) ? this.currentPage.page.path : undefined);
-				var pageContx = new PageContext(domcontainer);
-				this.currentPage = new VirtualPage(page, data, pageContx, resolve, reject);
-				this.checkVirtualPage(this.currentPage);
-				this.buildPageByObject(page, data, pageContx, resolve, reject);
-				this.pageHop();
+				var domcontainer = this.getNewContainer(toHistory);
+				var pageBuild_mainFunc = function(domcontainer){
+					var pageContx = new PageContext(domcontainer);
+					this.currentPage = new VirtualPage(page, data, pageContx, resolve, reject);
+					this.checkVirtualPage(this.currentPage);
+					this.buildPageByObject(page, data, pageContx, resolve, reject);
+					this.pageHop();
+				}.bind(this);
+				if(domcontainer instanceof Promise)
+					domcontainer.then(pageBuild_mainFunc);
+				else
+					pageBuild_mainFunc(domcontainer);
 			}else
 				reject(new PageNotFoundException());
 		}.bind(this)).catch(function(e) {
@@ -133,19 +202,24 @@ export default class PageBuilder{
 		var domcontainer = document.getElementById(this.container);
 		domcontainer.setAttribute("id", this.container+'-toDelete');
 		var newdomcontainer = document.getElementById('historyPage-'+historyNum);
-		var newIframe = document.createElement('iframe');
-		newIframe.id = "snapPageIframe";
-		newIframe.width = '100%';newIframe.height = '100%';
-		newIframe.src = prevPageSrc;
-		document.body.appendChild(newIframe);
-		document.body.removeChild(domcontainer);
-		newdomcontainer.setAttribute('id', this.container);
-		newdomcontainer.style.display = 'inline';
-		var eleIds = newdomcontainer.querySelectorAll('*[id]');
-		var toTrim = ('-history'+historyNum).length;
-		for(var i = 0; i<eleIds.length; i++){
-			eleIds[i].id = (eleIds[i].id).substring(0, (eleIds[i].id).length - toTrim);
-		}
+		newdomcontainer.classList.add('bbh-new');
+		var promise = this.waitNremove(this.makeTransition(domcontainer, newdomcontainer, this.transition), domcontainer);
+		var recoverPage_func = function(){
+			newdomcontainer.setAttribute('id', this.container);
+			newdomcontainer.style.display = 'block';
+			var eleIds = newdomcontainer.querySelectorAll('*[id]');
+			var toTrim = ('-history'+historyNum).length;
+			for(var i = 0; i<eleIds.length; i++){
+				eleIds[i].id = (eleIds[i].id).substring(0, (eleIds[i].id).length - toTrim);
+			}
+			document.dispatchEvent(new BobbleHead.PageReadyEvent());
+			newdomcontainer.dispatchEvent(new BobbleHead.PageReadyEvent());
+		}.bind(this);
+		if(promise)
+			return promise.then(recoverPage_func);
+		else
+			recoverPage_func();
+		return null;
 	}
 	buildPageByText(html, data, configuration, sandbox, modulesToLoad, onSuccess, onFailure){
 			var context = Context.getGlobal();
@@ -160,7 +234,7 @@ export default class PageBuilder{
 				var tks = tks_queue.shift();
 				if(tks[4] instanceof Array)
 					for(var _tks of tks[4])
-						if(_tks[0]!='text')
+						if(_tks[0]!='text' && _tks[0]!='name')
 							tks_queue.push(_tks);
 				if(tks[1].startsWith('models.')){
 					var model = tks[1].split('.');
@@ -282,12 +356,20 @@ export default class PageBuilder{
 			this.checkVirtualPage(vpage);
 			if(vpage.page.keepLive){
 				var hNum = (document.querySelectorAll('*[id^="historyPage-"]').length);
-				this.buildPageFromHistory(hNum - 1, vpage.page.path);
-				this.pageHop();
+				var buildResult = this.buildPageFromHistory(hNum - 1, vpage.page.path);
+				if(buildResult){
+					buildResult.then(function(){this.pageHop()}.bind(this));
+				}
 			}else{
-				this.getNewContainer(false, vpage.page.path);
-				this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
-				this.pageHop();
+				this.getNewContainer(false);
+				var pageBuild_mainFunc = function(){
+					this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
+					this.pageHop();
+				}.bind(this);
+				if(domcontainer instanceof Promise)
+					domcontainer.then(pageBuild_mainFunc);
+				else
+					pageBuild_mainFunc();
 			}
 		}else
 			throw new PageNotFoundException();

@@ -69,6 +69,7 @@ export default class AppController{
 			var page_container = temp_configuration.getElementsByTagName('pages')[0];
 			var pages_index = page_container.getElementsByTagName('index')[0];
 			var pages_path = page_container.getAttribute('path');
+			var pages_transition = page_container.getAttribute('transition') || null;
 			for( var p of page_container.getElementsByTagName('page')){
 				var modulesAll = null;
 				var rolesAllowed = null;
@@ -156,6 +157,7 @@ export default class AppController{
 				}else
 					globalContext.pageBuilder = new PageBuilder();
 				globalContext.pageBuilder.container = hold_conf.container;
+				globalContext.pageBuilder.transition = pages_transition;
 				var defaultConnector_conf = (temp_configuration.getElementsByTagName('defaultConnector')[0]);
 				if(defaultConnector_conf){
 					defaultConnector_conf = defaultConnector_conf.textContent;

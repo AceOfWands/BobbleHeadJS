@@ -1,0 +1,45 @@
+.bbh-page{
+	float: none;
+	position: static;
+}
+
+.bbh-page.bbh-new{
+	width: 100%;
+	float: left;
+	position: absolute;
+}
+
+.bbh-page.bbh-vanish{
+	opacity: 1;
+	transition: opacity 0.5s ease-in-out, display 0.5s ease-in-out;
+}
+
+.bbh-page.bbh-vanish.bbh-hide{
+	opacity: 0;
+}
+
+.bbh-page.bbh-new.bbh-slide{
+	z-index: 51;
+	border-radius: 15px;
+	width: 98vw;
+	box-shadow: 0 5px 20px 7px rgba(0,0,0,0.3);
+	padding: 15px;
+}
+
+.bbh-page.bbh-slide-under{
+	z-index: 50;
+}
+
+.bbh-page.bbh-slide{
+	left: 1vw;
+	top: 1.5vw;
+	transition: left 2s ease-in-out;
+	position: fixed;
+	min-height: 98.5vh;
+	max-height: 98.5vh;
+	background: #fff;
+}
+
+.bbh-page.bbh-slide.bbh-hide{
+	left: 100vw;
+}
