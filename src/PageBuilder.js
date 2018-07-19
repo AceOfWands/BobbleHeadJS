@@ -20,6 +20,53 @@ export default class PageBuilder{
 		this.documentProxy = null;
 		this.currentPage = null;
 		this.transition = null;
+		(function(Node) {
+			Node.prototype.__addEventListener = Node.prototype.addEventListener;
+			Node.prototype.addEventListener = function addEventListener(types, listener, useCapture) {
+				if(this != document){
+					if(!this.__listners)
+						this.__listners = {};
+					types.split(' ').forEach(function(listener, useCapture, type) {
+						if(!this.__listners[type])
+							this.__listners[type] = [];
+						this.__listners[type].push({ls: listener, uc: useCapture});
+					}.bind(this, listener, useCapture));
+				}
+				return this.__addEventListener(types, listener, useCapture);
+			};
+			Node.prototype.__removeEventListener = Node.prototype.removeEventListener;
+			Node.prototype.removeEventListener = function removeEventListener(types, listener, useCaptureOptions = false) {
+				if(this.__listners){
+					types.split(' ').forEach(function(listener, useCaptureOptions, type) {
+						if(this.__listners && this.__listners[type]){
+							var l = this.__listners[type].length;
+							for(var i=0; i<l; i++){
+								var ele = this.__listners[type].shift();
+								if(ele.ls == listener && ele.uc == useCaptureOptions){
+									break;
+								}
+								this.__listners[type].push(ele);
+							}
+						}
+					}.bind(this, listener, useCaptureOptions));
+				}
+				return this.__removeEventListener(types, listener, useCaptureOptions);
+			};
+			Node.prototype.__renewListeners = function __renewListeners(){
+				if (this.hasChildNodes()) {
+					var children = this.childNodes;
+					for (var i = 0; i < children.length; i++) {
+						children[i].__renewListeners();
+					}
+				}
+				if(this.__listners){
+					for(var type in this.__listners){
+						for(var j=0; j<this.__listners[type].length; j++)
+							this.__addEventListener(type, this.__listners[type][j].ls, this.__listners[type][j].uc);
+					}
+				}
+			};
+		})(window.Node);
 	}
 	checkPage(page){
 		var context = Context.getGlobal();
@@ -211,6 +258,7 @@ export default class PageBuilder{
 			var toTrim = ('-history'+historyNum).length;
 			for(var i = 0; i<eleIds.length; i++){
 				eleIds[i].id = (eleIds[i].id).substring(0, (eleIds[i].id).length - toTrim);
+				eleIds[i].__renewListeners();
 			}
 			document.dispatchEvent(new BobbleHead.PageReadyEvent());
 			newdomcontainer.dispatchEvent(new BobbleHead.PageReadyEvent());
