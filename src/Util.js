@@ -1,5 +1,5 @@
-export function log(data,level = null,description = null){
-	if(level!=null && description != null){
+export function log(data,level = null,...description){
+	if(level!=null){
 		if(parseInt(level)>1)			
 			console.error('['+data+'] ', description);
 		else
