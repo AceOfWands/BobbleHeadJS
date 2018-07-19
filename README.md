@@ -20,17 +20,7 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
 
 ## Todo List
 - ### CMS Core
-  - [ ] Multiple Page Hop
-  - [ ] Asynchronous models
   - [ ] Implement User roles for AccessController
-- ### Simple Rest Models Generator (moved to new repository)
-  - [ ] Models generator
-- ### Rest - WADL Communicator (moved to new repository)
-  - [ ] WADL Reader (almost completed)
-  - [ ] Models generator
-- ### XHTML Page Composer (moved to new repository)
-  - [ ] XPAG Reader
-  - [ ] XPAG Render
 
 ## Library Used
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
