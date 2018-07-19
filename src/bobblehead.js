@@ -102,8 +102,7 @@ window.bobblehead = (function(a){
 		Events: {
 			FrameworkEvent: FrameworkEvent
 		},
-		Util: Util,
-		log: Util.log
+		Util: Util
 	}
 	//Events
 	BobbleHead.CacherLoadedEvent = class extends BobbleHead.Events.FrameworkEvent{
