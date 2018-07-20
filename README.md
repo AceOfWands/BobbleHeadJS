@@ -1,8 +1,8 @@
 # BobbleHeadCMS
 
-BobbleHead CMS is a pure-Javascript CMS that uses HTML5, CSS and Javascript to generate your pages and to interface optionally with a Rest-Server.
-It allows to create front-end in a really fast and simple way (just writing a simplified XHTML).
-The CMS allows you to define a multi-pages webapp and to fill this pages with tables, forms, images and others.
+BobbleHead CMS is a pure-Javascript CMS that uses HTML5, CSS and Javascript to generate your pages and to interface optionally with remote resources by means of a Controller-Model system.
+It allows to create front-end in a really fast and simple way by Web languages and uses tools to keep all your page and all your functions alive also without an Internet connection.
+Il simplifies the building of apps and websites providing ready-to-use develop resource useful to resolve most common app development problems.
 
 ![npm](https://img.shields.io/npm/v/npm.svg) 
 ![webpack](https://img.shields.io/badge/webpack-v4.10.1-orange.svg) 
@@ -20,7 +20,7 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
 
 ## Todo List
 - ### CMS Core
-  - [x] Implement User roles for AccessController
+  - [ ] Implement a Scheduler for Model operations
 
 ## Library Used
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
