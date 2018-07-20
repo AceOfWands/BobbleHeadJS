@@ -3,6 +3,7 @@ import {log} from './Util.js';
 import AuthenticationMethods from './AuthenticationMethods.js';
 import AuthenticationMethod from './AuthenticationMethod.js';
 import InvalidAuthenticationMethodException from './Exceptions/InvalidAuthenticationMethodException.js';
+import UnauthorizedException from './Exceptions/UnauthorizedException.js';
 import Session from './Session.js';
 
 export default class AccessController{
@@ -16,6 +17,11 @@ export default class AccessController{
 			return sess;
 		}
 		return this.controllerData.session;
+	}
+	getCurrentUser(){
+		if(this.currentAuthMethod)
+			return this.currentAuthMethod.getCurrentUser();
+		return null;
 	}
 	saveSession(sess){
 		var db = Database.getInstance();
@@ -37,7 +43,23 @@ export default class AccessController{
 	}
 	processPage(page){
 		if(this.currentAuthMethod){
-			this.currentAuthMethod.processPage(page);
+			var usr = this.getCurrentUser();
+			if(usr){
+				var process = false;
+				if(page.roles.length > 0)
+					for(var i=0; i < page.roles.length; i++){
+						if(usr.hasRole(page.roles[i])){
+							process = true;
+							break;
+						}
+					}
+				else
+					process = true;
+				if(process)
+					this.currentAuthMethod.processPage(page);
+				else
+					throw new UnauthorizedException();
+			}
 		}
 	}
 	processVirtualPage(vpage){
