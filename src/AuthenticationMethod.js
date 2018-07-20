@@ -11,4 +11,9 @@ export default class AuthenticationMethod{
 	replaceCurrentSession(session){
 		this.session = session;
 	}
+	getCurrentUser(){
+		if(this.session)
+			return this.session.getUser();
+		return null;
+	}
 }
