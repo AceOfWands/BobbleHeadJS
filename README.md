@@ -20,7 +20,7 @@ The CMS allows you to define a multi-pages webapp and to fill this pages with ta
 
 ## Todo List
 - ### CMS Core
-  - [ ] Implement User roles for AccessController
+  - [x] Implement User roles for AccessController
 
 ## Library Used
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
