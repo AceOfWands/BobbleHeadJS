@@ -1,6 +1,7 @@
 import Database from './Database.js';
 import {log, HeapNode, ReverseHeap} from './Util.js';
 import CacherRequest from './CacherRequest.js';
+import CacherLoadedEvent from './Events/CacherLoadedEvent.js';
 
 export default class Cacher{
 	static init(maxcached, whitelist, blacklist){
@@ -38,13 +39,13 @@ export default class Cacher{
 						Cacher.cacheHeap._id = 'cacheHeap';
 						log('Cacher',0,'Cacher heap not found');
 					}
-					document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
+					document.dispatchEvent(new CacherLoadedEvent());
 					resolve();
 				}).catch(function(err) {
 					Cacher.cacheHeap = new ReverseHeap();
 					Cacher.cacheHeap._id = 'cacheHeap';
 					log('Cacher heap not found', 1, err);
-					document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
+					document.dispatchEvent(new CacherLoadedEvent());
 					resolve();
 				});
 			}).catch(function(err) {
@@ -52,7 +53,7 @@ export default class Cacher{
 				Cacher.cacheHeap = new ReverseHeap();
 				Cacher.cacheHeap._id = 'cacheHeap';
 				log('Cacher map not found', 1, err);
-				document.dispatchEvent(new BobbleHead.CacherLoadedEvent());
+				document.dispatchEvent(new CacherLoadedEvent());
 				resolve();
 			});
 			Cacher.whitelist = whitelist;

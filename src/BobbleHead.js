@@ -33,6 +33,9 @@ import Context from './Context.js';
 import FrameworkException from './Exceptions/FrameworkException.js';
 import FrameworkError from './Errors/FrameworkError.js';
 import FrameworkEvent from './Events/FrameworkEvent.js';
+import CacherLoadedEvent from './Events/CacherLoadedEvent.js';
+import AccessControllerLoadedEvent from './Events/AccessControllerLoadedEvent.js';
+import PageReadyEvent from './Events/PageReadyEvent.js';
 import * as Util from './Util.js';
 import ConnectorRequest from './ConnectorRequest.js';
 import CacherRequest from './CacherRequest.js';
@@ -100,26 +103,13 @@ window.bobblehead = (function(a){
 			NotSupportedEngineError: NotSupportedEngineError
 		},
 		Events: {
-			FrameworkEvent: FrameworkEvent
+			FrameworkEvent: FrameworkEvent,
+			CacherLoadedEvent: CacherLoadedEvent,
+			AccessControllerLoadedEvent: AccessControllerLoadedEvent,
+			PageReadyEvent: PageReadyEvent
 		},
 		Util: Util
 	}
-	//Events
-	BobbleHead.CacherLoadedEvent = class extends BobbleHead.Events.FrameworkEvent{
-		constructor(data = null){
-			super('cacherloaded', data);
-		}
-	};
-	BobbleHead.AccessControllerLoadedEvent = class extends BobbleHead.Events.FrameworkEvent{
-		constructor(data = null){
-			super('acloaded', data);
-		}
-	};
-	BobbleHead.PageReadyEvent = class extends BobbleHead.Events.FrameworkEvent{
-		constructor(data = null){
-			super('pageready', data);
-		}
-	};
 	//Main Routine
 	return new BobbleHead.AppController('./app.xml');
 

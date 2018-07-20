@@ -5,6 +5,7 @@ import AuthenticationMethod from './AuthenticationMethod.js';
 import InvalidAuthenticationMethodException from './Exceptions/InvalidAuthenticationMethodException.js';
 import UnauthorizedException from './Exceptions/UnauthorizedException.js';
 import Session from './Session.js';
+import AccessControllerLoadedEvent from './Events/AccessControllerLoadedEvent.js';
 
 export default class AccessController{
 	getCurrentSession(){
@@ -81,12 +82,12 @@ export default class AccessController{
 				this.controllerData.session._rev = session._rev;
 				this.currentAuthMethod.replaceCurrentSession(this.controllerData.session);
 				log('Fetched local session', 0, this.controllerData.session);
-				document.dispatchEvent(new BobbleHead.AccessControllerLoadedEvent());
+				document.dispatchEvent(new AccessControllerLoadedEvent());
 				resolve();
 			}.bind(this)).catch(function(err) {
 				this.controllerData.session = null;
 				log('Cannot retrive local session', 1, err);
-				document.dispatchEvent(new BobbleHead.AccessControllerLoadedEvent());
+				document.dispatchEvent(new AccessControllerLoadedEvent());
 				resolve();
 			}.bind(this));
 		}.bind(this)).catch(function(e) {

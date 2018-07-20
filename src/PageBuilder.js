@@ -9,6 +9,7 @@ import PageNotFoundException from './Exceptions/PageNotFoundException.js';
 import RedirectException from './Exceptions/RedirectException.js';
 import FrameworkException from './Exceptions/FrameworkException.js';
 import ModelNotFoundException from './Exceptions/ModelNotFoundException.js';
+import PageReadyEvent from './Events/PageReadyEvent.js';
 import Mustache from 'mustache';
 import {log, defaultCallback, isRemoteURIPattern} from './Util.js';
 import './Style/Pages.css';
@@ -260,8 +261,8 @@ export default class PageBuilder{
 				eleIds[i].id = (eleIds[i].id).substring(0, (eleIds[i].id).length - toTrim);
 				eleIds[i].__renewListeners();
 			}
-			document.dispatchEvent(new BobbleHead.PageReadyEvent());
-			newdomcontainer.dispatchEvent(new BobbleHead.PageReadyEvent());
+			document.dispatchEvent(new PageReadyEvent());
+			newdomcontainer.dispatchEvent(new PageReadyEvent());
 		}.bind(this);
 		if(promise)
 			return promise.then(recoverPage_func);
@@ -369,8 +370,8 @@ export default class PageBuilder{
 						}
 				}
 				Promise.all(pageloadpromises).then(function(){
-					document.dispatchEvent(new BobbleHead.PageReadyEvent());
-					appContainer.dispatchEvent(new BobbleHead.PageReadyEvent());
+					document.dispatchEvent(new PageReadyEvent());
+					appContainer.dispatchEvent(new PageReadyEvent());
 					onSuccess();
 				});
 			}.bind(this));
