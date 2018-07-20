@@ -87,7 +87,7 @@ export default class AppController{
 					parseInt(p.getAttribute('vid')),(p.getAttribute('noback')=='true'),confPage, modulesAll,
 					(p.hasAttribute('keepLive')) ? (p.getAttribute('keepLive')=='true') : undefined,
 					(p.hasAttribute('allowDuplicate')) ? (p.getAttribute('allowDuplicate')=='true') : undefined,
-					(p.hasAttribute('ghostPage')) ? (p.getAttribute('ghostPage')=='true') : undefined);
+					(p.hasAttribute('ghostPage')) ? (p.getAttribute('ghostPage')=='true') : undefined, rolesAllowed);
 				PageFactory.addPage(newPage);
 			}
 			AppController.configuration = new GenericConfiguration(hold_conf);
