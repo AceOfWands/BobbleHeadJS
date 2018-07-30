@@ -2,7 +2,8 @@
   "name": "bobblehead",
   "version": "1.0.0",
   "description": "BobbleHead CMS is a pure-Javascript CMS for cross-platform cross-device client-side applications",
-  "private": true,
+  "private": false,
+  "main": "./src/BobbleHead.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "webpack-dev-server --open --config webpack.dev.js",

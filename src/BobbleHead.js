@@ -114,3 +114,5 @@ window.bobblehead = (function(a){
 	return new BobbleHead.AppController('./app.xml');
 
 })(window);
+
+export default window.BobbleHead;
