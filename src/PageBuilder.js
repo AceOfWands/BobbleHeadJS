@@ -13,6 +13,7 @@ import PageReadyEvent from './Events/PageReadyEvent.js';
 import Mustache from 'mustache';
 import {log, defaultCallback, isRemoteURIPattern} from './Util.js';
 import './Style/Pages.css';
+import Sandbox from 'js-sandbox';
 
 export default class PageBuilder{
 	constructor(){

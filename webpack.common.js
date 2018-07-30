@@ -5,9 +5,6 @@ module.exports = {
 	entry: {
 		bobblehead: './src/BobbleHead.js'
 	},
-	plugins: [
-		new CleanWebpackPlugin(['dist/js/bobblehead.js'])
-	],
 	output: {
 		filename: '[name].js',
 		path: path.resolve(__dirname, 'dist', 'js')
@@ -27,7 +24,11 @@ module.exports = {
 				use: {
 					loader: 'babel-loader',
 					options: {
-						presets: ['@babel/preset-env']
+						presets: ['@babel/preset-env'],
+						plugins: [
+						  "@babel/plugin-transform-runtime",
+						  "@babel/plugin-transform-async-to-generator"
+						]
 					}
 				}
 			}

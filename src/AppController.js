@@ -16,6 +16,7 @@ import GenericConnector from './GenericConnector.js';
 import AccessController from './AccessController.js';
 import NotSupportedEngineError from './Errors/NotSupportedEngineError.js';
 import Database from './Database.js';
+import Sandbox from 'js-sandbox';
 
 export default class AppController{
 	constructor(xmlConfiguration){

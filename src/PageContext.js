@@ -1,4 +1,5 @@
 import Context from './Context.js';
+import Sandbox from 'js-sandbox';
 
 export default class PageContext{
 	constructor(domcontainer){
