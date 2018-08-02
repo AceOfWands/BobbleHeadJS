@@ -90,6 +90,7 @@ window.bobblehead = (function(a){
 		defaultCallback: Util.defaultCallback,
 		Exceptions: {
 			FrameworkException: FrameworkException,
+			GenericModuleException: GenericModuleException,
 			PageNotFoundException: PageNotFoundException,
 			RedirectException: RedirectException,
 			NotSupportedException: NotSupportedException,
