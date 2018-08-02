@@ -16,6 +16,7 @@ import GenericConnector from './GenericConnector.js';
 import AccessController from './AccessController.js';
 import NotSupportedEngineError from './Errors/NotSupportedEngineError.js';
 import Database from './Database.js';
+import FrameworkException from './Exceptions/FrameworkException.js';
 import Sandbox from 'js-sandbox';
 
 export default class AppController{
@@ -35,6 +36,13 @@ export default class AppController{
 	}
 	registerRoute(route){
 		Router.addRoute(route);
+	}
+	addToGlobalContext(name, obj){
+		var globalContext = Context.getGlobal();
+		if(name in globalContext)
+			throw new FrameworkException('A module tried to edit global context!');
+		else
+			globalContext[name] = obj;
 	}
 	processConf(conf){
 		if(!conf) return;
