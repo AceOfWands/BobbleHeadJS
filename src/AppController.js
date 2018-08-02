@@ -127,6 +127,7 @@ export default class AppController{
 								var mod_load_func = function(confModule, resolve){
 									var script = document.createElement("script");
 									script.src = modules_path + m.getAttribute('path');
+									script.type = 'module';
 									script.onload = function(modules, configuration, callback){
 										while(modules.length>0){
 											var sm = modules.shift();
