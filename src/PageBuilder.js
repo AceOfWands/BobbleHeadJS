@@ -89,7 +89,10 @@ export default class PageBuilder{
 			else
 				var a = container.getElementsByTagName("a");
 			for(var i=0; i<a.length; i++){
-				if(!a[i].hasAttribute('bbh-ignore') && !isRemoteURIPattern.test(a[i].getAttribute('href')))
+				if(!a[i].hasAttribute('bbh-ignore') &&
+					a[i].getAttribute('href') &&
+					a[i].getAttribute('href')!='#' &&
+					!isRemoteURIPattern.test(a[i].getAttribute('href')))
 					a[i].onclick = function(connector){
 						var req = new ConnectorRequest('GET', this.getAttribute('href'), null); //TODO: data-*
 						connector.request(req);
