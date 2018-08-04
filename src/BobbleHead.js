@@ -47,6 +47,7 @@ import NotSupportedException from './Exceptions/NotSupportedException.js';
 import UnauthorizedException from './Exceptions/UnauthorizedException.js';
 import InvalidRouteException from './Exceptions/InvalidRouteException.js';
 import ControllerNotFoundException from './Exceptions/ControllerNotFoundException.js';
+import ModelNotFoundException from './Exceptions/ModelNotFoundException.js';
 import InvalidAuthenticationMethodException from './Exceptions/InvalidAuthenticationMethodException.js';
 import GenericModuleException from './Exceptions/GenericModuleException.js';
 import NotSupportedEngineError from './Errors/NotSupportedEngineError.js';
@@ -98,6 +99,7 @@ window.bobblehead = (function(a){
 			UnauthorizedException: UnauthorizedException,
 			InvalidRouteException: InvalidRouteException,
 			ControllerNotFoundException: ControllerNotFoundException,
+			ModelNotFoundException: ModelNotFoundException,
 			InvalidAuthenticationMethodException: InvalidAuthenticationMethodException
 		},
 		Errors: {
