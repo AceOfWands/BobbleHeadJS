@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
 
 module.exports = {
@@ -17,6 +18,20 @@ module.exports = {
 					'style-loader',
 					'css-loader'
 				]
+			},
+			{
+				test: require.resolve('mustache'),
+				use: [{
+					loader: 'expose-loader',
+					options: 'Mustache'
+				}]
+			},
+			{
+				test: require.resolve('js-sandbox'),
+				use: [{
+					loader: 'expose-loader',
+					options: 'Sandbox'
+				}]
 			},
 			{
 				test: /\.js$/,
