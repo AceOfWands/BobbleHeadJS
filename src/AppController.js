@@ -87,10 +87,11 @@ export default class AppController{
 				if(p.getAttribute('rolesAllowed'))
 					rolesAllowed = p.getAttribute('rolesAllowed').split(',');
 				var hold_vconf = {};
-				for(var c of (p.getElementsByTagName('configuration')[0]).childNodes){
-					if(c instanceof Element)
-						hold_vconf[c.tagName] = c.textContent;
-				}
+				if(p.getElementsByTagName('configuration') && p.getElementsByTagName('configuration').length > 0)
+					for(var c of (p.getElementsByTagName('configuration')[0]).childNodes){
+						if(c instanceof Element)
+							hold_vconf[c.tagName] = c.textContent;
+					}
 				var confPage = new PageConfiguration(hold_vconf);
 				var newPage = new Page(p.getAttribute('path'), //pages_path+
 					parseInt(p.getAttribute('vid')),(p.getAttribute('noback')=='true'),confPage, modulesAll,
