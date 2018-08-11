@@ -11,12 +11,17 @@ export default class ModulePool{
 	static getModule(name){
 		return ModulePool.modules[name];
 	}
-	static addModule(module){
+	static getModulePermissions(name){
+		return ModulePool.modulePerms[name];
+	}
+	static addModule(module, permissions){
 		try{
 			ModulePool.modules[module.name] = module;
+			ModulePool.modulePerms[module.name] = permissions;
 		}catch(e){
 			log(e);
 		}
 	}
 }
 ModulePool.modules = {};
+ModulePool.modulePerms = {};

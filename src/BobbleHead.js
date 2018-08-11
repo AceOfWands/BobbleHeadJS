@@ -52,71 +52,214 @@ import InvalidAuthenticationMethodException from './Exceptions/InvalidAuthentica
 import GenericModuleException from './Exceptions/GenericModuleException.js';
 import NotSupportedEngineError from './Errors/NotSupportedEngineError.js';
 
-window.bobblehead = (function(a){
-	a.BobbleHead = {
-		UserPool: UserPool,
-		User: User,
-		Role: Role,
-		RolePool: RolePool,
-		Session: Session,
-		Response: Response,
-		Request: Request,
-		ConnectorRequest: ConnectorRequest,
-		CacherRequest: CacherRequest,
-		GenericConfiguration: GenericConfiguration,
-		ModuleConfiguration: ModuleConfiguration,
-		PageConfiguration: PageConfiguration,
-		Model: Model,
-		ModelInstance: ModelInstance,
-		ModelPool: ModelPool,
-		Route: Route,
-		Router: Router,
-		Page: Page,
-		PageContext: PageContext,
-		AccessController: AccessController,
-		AuthenticationMethod: AuthenticationMethod,
-		AuthenticationMethods: AuthenticationMethods,
-		InternalConnector: InternalConnector,
-		ExternalConnector: ExternalConnector,
-		GenericConnector: GenericConnector,
-		Cacher: Cacher,
-		PageBuilder: PageBuilder,
-		PageFactory: PageFactory,
-		Module: Module,
-		ModulePool: ModulePool,
-		VirtualPage: VirtualPage,
-		Database: Database,
-		AppController: AppController,
-		XMLParser: XMLParser,
-		Context: Context,
-		defaultCallback: Util.defaultCallback,
+export default (function(){
+	var BobbleHead = {};
+	Object.defineProperties(BobbleHead, {
+		UserPool: {
+			value: UserPool,
+			writable: false
+		},
+		User: {
+			value: User,
+			writable: false
+		},
+		Role: {
+			value: Role,
+			writable: false
+		},
+		RolePool: {
+			value: RolePool,
+			writable: false
+		},
+		Session: {
+			value: Session,
+			writable: false
+		},
+		Response: {
+			value: Response,
+			writable: false
+		},
+		Request: {
+			value: Request,
+			writable: false
+		},
+		ConnectorRequest: {
+			value: ConnectorRequest,
+			writable: false
+		},
+		CacherRequest: {
+			value: CacherRequest,
+			writable: false
+		},
+		GenericConfiguration: {
+			value: GenericConfiguration,
+			writable: false
+		},
+		ModuleConfiguration: {
+			value: ModuleConfiguration,
+			writable: false
+		},
+		PageConfiguration: {
+			value: PageConfiguration,
+			writable: false
+		},
+		Model: {
+			value: Model,
+			writable: false
+		},
+		ModelInstance: {
+			value: ModelInstance,
+			writable: false
+		},
+		ModelPool: {
+			value: ModelPool,
+			writable: false
+		},
+		Route: {
+			value: Route,
+			writable: false
+		},
+		Router: {
+			value: Router,
+			writable: false
+		},
+		Page: {
+			value: Page,
+			writable: false
+		},
+		PageContext: {
+			value: PageContext,
+			writable: false
+		},
+		AccessController: {
+			value: AccessController,
+			writable: false
+		},
+		AuthenticationMethod: {
+			value: AuthenticationMethod,
+			writable: false
+		},
+		AuthenticationMethods: {
+			value: AuthenticationMethods,
+			writable: false
+		},
+		InternalConnector: {
+			value: InternalConnector,
+			writable: false
+		},
+		ExternalConnector: {
+			value: ExternalConnector,
+			writable: false
+		},
+		GenericConnector: {
+			value: GenericConnector,
+			writable: false
+		},
+		Cacher: {
+			value: Cacher,
+			writable: false
+		},
+		PageBuilder: {
+			value: PageBuilder,
+			writable: false
+		},
+		PageFactory: {
+			value: PageFactory,
+			writable: false
+		},
+		Module: {
+			value: Module,
+			writable: false
+		},
+		ModulePool: {
+			value: ModulePool,
+			writable: false
+		},
+		VirtualPage: {
+			value: VirtualPage,
+			writable: false
+		},
+		Database: {
+			value: Database,
+			writable: false
+		},
+		AppController: {
+			value: AppController,
+			writable: false
+		},
+		XMLParser: {
+			value: XMLParser,
+			writable: false
+		},
+		Context: {
+			value: Context,
+			writable: false
+		},
+		defaultCallback: {
+			value: Util.defaultCallback,
+			writable: false
+		},
 		Exceptions: {
-			FrameworkException: FrameworkException,
-			GenericModuleException: GenericModuleException,
-			PageNotFoundException: PageNotFoundException,
-			RedirectException: RedirectException,
-			NotSupportedException: NotSupportedException,
-			UnauthorizedException: UnauthorizedException,
-			InvalidRouteException: InvalidRouteException,
-			ControllerNotFoundException: ControllerNotFoundException,
-			ModelNotFoundException: ModelNotFoundException,
-			InvalidAuthenticationMethodException: InvalidAuthenticationMethodException
+			value: {
+				get FrameworkException(){return FrameworkException},
+				set FrameworkException(x){},
+				get GenericModuleException(){return GenericModuleException},
+				set GenericModuleException(x){},
+				get PageNotFoundException(){return PageNotFoundException},
+				set PageNotFoundException(x){},
+				get RedirectException(){return RedirectException},
+				set RedirectException(x){},
+				get NotSupportedException(){return NotSupportedException},
+				set NotSupportedException(x){},
+				get UnauthorizedException(){return UnauthorizedException},
+				set UnauthorizedException(x){},
+				get InvalidRouteException(){return InvalidRouteException},
+				set InvalidRouteException(x){},
+				get ControllerNotFoundException(){return ControllerNotFoundException},
+				set ControllerNotFoundException(x){},
+				get ModelNotFoundException(){return ModelNotFoundException},
+				set ModelNotFoundException(x){},
+				get InvalidAuthenticationMethodException(){return InvalidAuthenticationMethodException},
+				set InvalidAuthenticationMethodException(x){},
+			},
+			writable: false
 		},
 		Errors: {
-			FrameworkError: FrameworkError,
-			NotSupportedEngineError: NotSupportedEngineError
+			value: {
+				FrameworkError: FrameworkError,
+				NotSupportedEngineError: NotSupportedEngineError
+			},
+			writable: false
 		},
 		Events: {
-			FrameworkEvent: FrameworkEvent,
-			CacherLoadedEvent: CacherLoadedEvent,
-			AccessControllerLoadedEvent: AccessControllerLoadedEvent,
-			PageReadyEvent: PageReadyEvent
+			value: {
+				get FrameworkEvent(){return FrameworkEvent},
+				set FrameworkEvent(x){},
+				get CacherLoadedEvent(){return CacherLoadedEvent},
+				set CacherLoadedEvent(x){},
+				get AccessControllerLoadedEvent(){return AccessControllerLoadedEvent},
+				set AccessControllerLoadedEvent(x){},
+				get PageReadyEvent(){return PageReadyEvent},
+				set PageReadyEvent(x){},
+			},
+			writable: false
 		},
-		Util: Util
-	}
-	//Main Routine
-	return new BobbleHead.AppController('./app.xml');
-
-})(window);
-
-export default window.BobbleHead;
+		Util: {
+			value: Util,
+			writable: false
+		},
+		init: {
+			value: function(configuration = './app.xml'){
+				if(BobbleHead.app)
+					throw new FrameworkException('BobbleHead is already running');
+				Object.defineProperty(BobbleHead, 'app', {
+					value: new BobbleHead.AppController(configuration),
+					writable: false
+				});
+				return BobbleHead.app;
+			},
+			writable: false
+		},
+	});
+	return BobbleHead;
+})();

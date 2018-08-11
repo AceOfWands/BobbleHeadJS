@@ -117,6 +117,7 @@ export default class AppController{
 				for( var m of module_container.getElementsByTagName('module')){
 					if(m.getAttribute('enabled') == 'true'){
 						var hold_mconf = {};
+						var modulePerm = m.getAttribute('permissions') ? m.getAttribute('permissions').split(',') : [];
 						for(var c of (m.getElementsByTagName('configuration')[0]).childNodes){
 							if(c instanceof Element)
 								hold_mconf[c.tagName] = c.textContent;
@@ -124,26 +125,26 @@ export default class AppController{
 						var confModule = new ModuleConfiguration(hold_mconf);
 						//TODO: Replace with ES6 'import' when fully-compatible
 						current_promise = new Promise(
-							function(confModule, current_promise, resolve, reject){
-								var mod_load_func = function(confModule, resolve){
+							function(confModule, modulePerm, current_promise, resolve, reject){
+								var mod_load_func = function(confModule, modulePerm, resolve){
 									var script = document.createElement("script");
 									script.src = modules_path + m.getAttribute('path');
 									script.type = 'module';
-									script.onload = function(modules, configuration, callback){
+									script.onload = function(modules, configuration, permissions, callback){
 										while(modules.length>0){
 											var sm = modules.shift();
 											moduleConfs[sm.name] = configuration;
-											ModulePool.addModule(sm);
+											ModulePool.addModule(sm, permissions);
 										}
 										callback();
-									}.bind(script, this.moduleOnLoad, confModule, resolve);
+									}.bind(script, this.moduleOnLoad, confModule, modulePerm, resolve);
 									document.head.appendChild(script);
-								}.bind(this, confModule, resolve);
+								}.bind(this, confModule, modulePerm, resolve);
 								if(current_promise!=null)
 									current_promise.then(mod_load_func);
 								else
-									mod_load_func(confModule, resolve);
-							}.bind(this, confModule, current_promise)
+									mod_load_func();
+							}.bind(this, confModule, modulePerm, current_promise)
 						).catch(function(e) {
 							log(e);
 						});
@@ -155,6 +156,34 @@ export default class AppController{
 			document.getElementsByTagName("head")[0].appendChild(newBase);
 			Promise.all([cacher_promise, current_promise]).then(function(){
 				var globalContext = Context.getGlobal();
+				globalContext.BobbleHead = new Proxy(BobbleHead, {
+					whiteList: [
+						'User',
+						'Role',
+						'Session',
+						'Response',
+						'Request',
+						'ConnectorRequest',
+						'Model',
+						'ModelInstance',
+						'Route',
+						'Page',
+						'PageContext',
+						'AuthenticationMethod',
+						'AuthenticationMethods',
+						'PageFactory',
+						'VirtualPage',
+						'Exceptions',
+						'Errors',
+						'Events',
+						'Util'
+					],
+					get: function(target, name) {
+						return (name in target && name in this.whiteList) ?
+							target[name] :
+							null;
+					}
+				});
 				if(pageBuilder_conf){
 					pageBuilder_conf = pageBuilder_conf.textContent;
 					try{
@@ -204,7 +233,48 @@ export default class AppController{
 				accesscontroller_promise.then(function(){
 					var otherPromises = [];
 					for(var sm of ModulePool.getModules()){
-						var sandbox = new Sandbox(document.getElementById(hold_conf.container), globalContext.clone());
+						var mContext = globalContext.clone();
+						var mPerms = [];
+						for(var mp of ModulePool.getModulePermissions(sm.name)){
+							if(mp == 'pages'){
+								mPerms = mPerms.concat(['PageFactory', 'PageConfiguration']);
+							}else if(mp == 'users'){
+								mPerms = mPerms.concat(['UserPool', 'RolePool']);
+							}else if(mp == 'models'){
+								mPerms = mPerms.concat(['ModelPool']);
+							}
+						}
+						mContext.BobbleHead = new Proxy(BobbleHead, {
+							whiteList: [
+								'User',
+								'Role',
+								'Session',
+								'Response',
+								'Request',
+								'ConnectorRequest',
+								'Model',
+								'ModelInstance',
+								'Route',
+								'Page',
+								'PageContext',
+								'AuthenticationMethod',
+								'AuthenticationMethods',
+								'VirtualPage',
+								'Exceptions',
+								'Errors',
+								'Events',
+								'Util',
+								'XMLParser'
+							].concat(mPerms),
+							moduleName: sm.name,
+							get: function(target, name) {
+								if(name in target && this.whiteList.indexOf(name)!=-1)
+									return target[name];
+								else
+									throw new FrameworkException('Unpermitted access to '+name+' from '+this.moduleName);
+							}
+						});
+						var sandbox = new Sandbox(document.getElementById(hold_conf.container), mContext);
 						var initReturn = sandbox.execMethod('init', [moduleConfs[sm.name]], sm);
 						if(initReturn instanceof Promise)
 							otherPromises.push(initReturn);
