@@ -20,7 +20,7 @@ Il simplifies the building of apps and websites providing ready-to-use resources
 
 ## Todo List
 - ### CMS Core
-  - [ ] Implement a Scheduler for Model operations
+  - [ ] Wrap Database for modules e page scripts
 
 ## Library Used
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
