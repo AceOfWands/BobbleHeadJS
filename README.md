@@ -29,3 +29,5 @@ It simplifies the building of apps and websites providing ready-to-use resources
 - JS-Sandbox [github](https://github.com/AndXD/JS-Sandbox)
 
 ## Usage
+
+See the [wiki](../../wiki)
