@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <configuration>
 	<version>0.0.1</version>
 	<base_url>http://localhost/BobbleHeadCMS/dist</base_url>
@@ -8,10 +9,18 @@
 				<start_test>Success</start_test>
 			</data>
 		</index>
-		<page vid="1" noback="false" modulesAllowed="test" keepLive="true" allowDuplicate="true" path="test.html">
-			<configuration>
-				<test>Success</test>
-			</configuration>
+		<page 
+			vid="1"
+			noback="false"
+			modulesAllowed="test"
+			rolesAllowed="user"
+			keepLive="true"
+			allowDuplicate="true"
+			ghostPage="false"
+			path="test.html">
+				<configuration>
+					<test>Success</test>
+				</configuration>
 		</page>
 	</pages>
 	<modules path="./modules/">
