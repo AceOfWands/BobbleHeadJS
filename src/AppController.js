@@ -114,6 +114,12 @@ export default class AppController{
 				if(!modules_path.startsWith(hold_conf.base_url))
 					modules_path = absoluteURL(hold_conf.base_url, modules_path, false);
 				var moduleConfs = {};
+				var hiddenIfr = document.createElement('iframe');
+				hiddenIfr.style.display = 'none';
+				document.body.appendChild(hiddenIfr);
+				hiddenIfr.contentWindow.BobbleHead = window.BobbleHead;
+				hiddenIfr.contentWindow.Sandbox = window.Sandbox;
+				hiddenIfr.contentWindow.Mustache = window.Mustache;
 				for( var m of module_container.getElementsByTagName('module')){
 					if(m.getAttribute('enabled') == 'true'){
 						var hold_mconf = {};
@@ -123,7 +129,6 @@ export default class AppController{
 								hold_mconf[c.tagName] = c.textContent;
 						}
 						var confModule = new ModuleConfiguration(hold_mconf);
-						//TODO: Replace with ES6 'import' when fully-compatible
 						current_promise = new Promise(
 							function(confModule, modulePerm, current_promise, resolve, reject){
 								var mod_load_func = function(confModule, modulePerm, resolve){
@@ -138,7 +143,7 @@ export default class AppController{
 										}
 										callback();
 									}.bind(script, this.moduleOnLoad, confModule, modulePerm, resolve);
-									document.head.appendChild(script);
+									hiddenIfr.contentDocument.head.appendChild(script);
 								}.bind(this, confModule, modulePerm, resolve);
 								if(current_promise!=null)
 									current_promise.then(mod_load_func);
