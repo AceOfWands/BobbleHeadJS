@@ -19,8 +19,7 @@ It simplifies the building of apps and websites providing ready-to-use resources
 - Cross-platform
 
 ## Todo List
-- ### CMS Core
-  - [ ] Wrap Database for modules e page scripts
+- [ ] live models view
 
 ## Library Used
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
