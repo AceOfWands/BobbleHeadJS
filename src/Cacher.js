@@ -6,7 +6,7 @@ import CacherLoadedEvent from './Events/CacherLoadedEvent.js';
 export default class Cacher{
 	static init(maxcached, whitelist, blacklist){
 		return new Promise(function(resolve, reject){
-			var db = Database.getInstance();
+			var db = Database.getInstance(true);
 			db.get('cacheMap').then(function(cacheMap) {
 				if(cacheMap)
 					Cacher.cacheMap = cacheMap;
@@ -81,7 +81,7 @@ export default class Cacher{
 		var cache_converted_request_func = function(response, obj){
 			var request = obj.pop();
 			if(Cacher.blacklist.indexOf(request.uri) == -1){
-				var db = Database.getInstance();
+				var db = Database.getInstance(true);
 				var parsed_uri = Cacher.parseUri(request.uri);
 				var found = -1;
 				if(Cacher.cacheMap[request.method] &&

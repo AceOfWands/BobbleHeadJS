@@ -25,7 +25,7 @@ export default class AccessController{
 		return null;
 	}
 	saveSession(sess){
-		var db = Database.getInstance();
+		var db = Database.getInstance(true);
 		sess._id = 'session';
 		if(this.controllerData.session)
 			sess._rev = this.controllerData.session._rev;
@@ -74,7 +74,7 @@ export default class AccessController{
 				AuthenticationMethods.getMethod('none');
 			if(!(this.currentAuthMethod instanceof AuthenticationMethod))
 				throw new InvalidAuthenticationMethodException();
-			var db = Database.getInstance();
+			var db = Database.getInstance(true);
 			this.controllerData = {};
 			db.get('session').then(function(session) {
 				this.controllerData.session = new Session(session.info);
