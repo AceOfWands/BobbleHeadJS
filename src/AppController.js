@@ -117,9 +117,47 @@ export default class AppController{
 				var hiddenIfr = document.createElement('iframe');
 				hiddenIfr.style.display = 'none';
 				document.body.appendChild(hiddenIfr);
-				hiddenIfr.contentWindow.BobbleHead = window.BobbleHead;
-				hiddenIfr.contentWindow.Sandbox = window.Sandbox;
-				hiddenIfr.contentWindow.Mustache = window.Mustache;
+				for(var v in window){
+					if(!(v in hiddenIfr.contentWindow))
+						hiddenIfr.contentWindow[v] = window[v];
+				}
+				hiddenIfr.contentWindow.Promise = window.Promise;
+				hiddenIfr.contentWindow.Array = window.Array;
+				hiddenIfr.contentWindow.Element = window.Element;
+				hiddenIfr.contentWindow._document = new Proxy(document, {
+					container: document.getElementById(hold_conf.container),
+					whiteList: [
+						'querySelector',
+						'getElementById',
+						'dispatchEvent',
+						'createElement'
+					],
+					get: function(target, name) {
+						var ret = ((typeof target[name] != 'function') || this.whiteList.indexOf(name)!=-1) ?
+							target[name] :
+							undefined;
+						if(typeof ret == 'function' && name != 'createElement'){
+							ret = function(next){
+								var args = [];
+								for(var i=1; i<arguments.length; i++)
+									args[i-1] = arguments[i];
+								var res = next.apply(document, args);
+								if(res instanceof Node){
+									var hold = res;
+									while (hold = hold.parentNode)
+										if (hold == this)
+											return res;
+									return this;
+								}
+							}.bind(this.container,ret);
+							
+						}
+						return ret.bind(target);
+					},
+					set: function(obj, prop, value) {
+						return false;
+					}
+				});
 				for( var m of module_container.getElementsByTagName('module')){
 					if(m.getAttribute('enabled') == 'true'){
 						var hold_mconf = {};
@@ -192,8 +230,12 @@ export default class AppController{
 				if(pageBuilder_conf){
 					pageBuilder_conf = pageBuilder_conf.textContent;
 					try{
+						var pageBuildClass = getClassFromName(pageBuilder_conf) ||
+							getClassFromName(pageBuilder_conf, hiddenIfr.contentWindow);
+						if(!pageBuildClass)
+							throw new FrameworkException(pageBuilder_conf + ' isn\'t a valid PageBuilder');
 						globalContext.pageBuilder = pageBuilder_conf ?
-							new (getClassFromName(pageBuilder_conf))() :
+							new (pageBuildClass)() :
 							new PageBuilder();
 					}catch(e){
 						log(e);
@@ -207,8 +249,12 @@ export default class AppController{
 				if(defaultConnector_conf){
 					defaultConnector_conf = defaultConnector_conf.textContent;
 					try{
+						var defConnClass = getClassFromName(defaultConnector_conf) ||
+							getClassFromName(defaultConnector_conf, hiddenIfr.contentWindow);
+						if(!defConnClass)
+							throw new FrameworkException(defaultConnector_conf + ' isn\'t a valid GenericConnector');
 						globalContext.defaultConnector = defaultConnector_conf ?
-							new (getClassFromName(defaultConnector_conf))() :
+							new (defConnClass)() :
 							new GenericConnector();
 					}catch(e){
 						log(e);
@@ -221,8 +267,12 @@ export default class AppController{
 				if(accessController_conf){
 					var accessController_conf_name = accessController_conf.textContent;
 					try{
+						var accessControllerClass = getClassFromName(accessController_conf_name) ||
+							getClassFromName(accessController_conf_name, hiddenIfr.contentWindow);
+						if(!accessControllerClass)
+							throw new FrameworkException(pageBuilder_conf + ' isn\'t a valid AccessController');
 						globalContext.accessController = accessController_conf_name ?
-							new (getClassFromName(accessController_conf_name))():
+							new (accessControllerClass)():
 							new AccessController();
 						accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method'));
 					}catch(e){

@@ -14,8 +14,8 @@ export function defaultCallback(){
 export const isRemoteURIPattern = /^http[s]?:\/\//i;
 export const vidInURIPattern = /^([0-9]+|back)\/?/;
 export const strInURIPattern = /^([\w]+)\/?/;
-export function getClassFromName(str){
-	var curr = window;
+export function getClassFromName(str, top = window){
+	var curr = top;
 	var _clss = str.split('.');
 	for(var i=0; i<_clss.length; i++){
 		curr = curr[_clss[i]];
