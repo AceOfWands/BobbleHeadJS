@@ -25,6 +25,8 @@ export default class ConnectorRequest extends Request{
 				if(this.data == null)
 					this.data = new FormData();
 				this.data.set(a,b);
+			}else if(typeof a === "string"){
+				this.data = a;
 			}else{
 				for(var p in a)
 					this.setData(p, a[p]);
