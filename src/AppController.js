@@ -197,6 +197,9 @@ export default class AppController{
 			var newBase = document.createElement("base");
 			newBase.setAttribute("href", pages_path);
 			document.getElementsByTagName("head")[0].appendChild(newBase);
+			var newBaseIfr = hiddenIfr.contentDocument.createElement("base");
+			newBaseIfr.setAttribute("href", hold_conf.base_url+'/'+pages_path);
+			hiddenIfr.contentDocument.getElementsByTagName("head")[0].appendChild(newBaseIfr);
 			Promise.all([cacher_promise, current_promise]).then(function(){
 				var globalContext = Context.getGlobal();
 				globalContext.BobbleHead = new Proxy(BobbleHead, {
