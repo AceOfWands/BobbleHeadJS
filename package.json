@@ -1,6 +1,6 @@
 {
   "name": "bobblehead",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "BobbleHead CMS is a pure-Javascript CMS for cross-platform cross-device client-side applications",
   "private": false,
   "main": "./src/BobbleHead.js",
