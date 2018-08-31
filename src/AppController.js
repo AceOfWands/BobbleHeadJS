@@ -181,7 +181,19 @@ export default class AppController{
 										}
 										callback();
 									}.bind(script, this.moduleOnLoad, confModule, modulePerm, resolve);
-									hiddenIfr.contentDocument.head.appendChild(script);
+									if(modules_path.startsWith('file:')){
+										var prefetchxhr = new XMLHttpRequest();
+										prefetchxhr.onload = function(m, script, hiddenIfr, e){
+											let blob = prefetchxhr.response;
+											let newblob = new Blob([blob], {type: 'text/javascript'});
+											script.src = URL.createObjectURL(newblob);
+											hiddenIfr.contentDocument.head.appendChild(script);
+										}.bind(this, m, script, hiddenIfr);
+										prefetchxhr.open('get', modules_path + m.getAttribute('path'));
+										prefetchxhr.responseType = 'blob';
+										prefetchxhr.send();
+									}else
+										hiddenIfr.contentDocument.head.appendChild(script);
 								}.bind(this, confModule, modulePerm, resolve);
 								if(current_promise!=null)
 									current_promise.then(mod_load_func);
