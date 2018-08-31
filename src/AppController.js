@@ -225,7 +225,7 @@ export default class AppController{
 						'Util'
 					],
 					get: function(target, name) {
-						return (name in target && name in this.whiteList) ?
+						return (name in target && this.whiteList.indexOf(name)!=-1) ?
 							target[name] :
 							null;
 					}
