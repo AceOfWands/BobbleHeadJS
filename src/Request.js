@@ -6,11 +6,16 @@ export default class Request{
 			this.setData(data)
 		else
 			this.data = null;
-		this.headers = headers;			
+		this.headers = headers;
+		for(var hname in this.headers)
+			if(this.headers[hname] && (typeof this.headers[hname] != 'string'))
+				this.headers[hname] = this.headers[hname].toString();
 	}
 	setHeader(a,b = null){
 		if(this.headers==null)
 			this.headers = {};
+		if(b && (typeof b != 'string'))
+			b = b.toString();
 		this.headers[a] = b;
 	}
 	getData(){
