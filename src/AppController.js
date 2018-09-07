@@ -162,10 +162,18 @@ export default class AppController{
 					if(m.getAttribute('enabled') == 'true'){
 						var hold_mconf = {};
 						var modulePerm = m.getAttribute('permissions') ? m.getAttribute('permissions').split(',') : [];
-						for(var c of (m.getElementsByTagName('configuration')[0]).childNodes){
-							if(c instanceof Element)
-								hold_mconf[c.tagName] = c.textContent;
-						}
+						var xml2obj_func = function(ele){
+							var hold_return = {};
+							for(var c of ele.childNodes){
+								if(c instanceof Element)
+									if (c.hasChildNodes())
+										hold_return[c.tagName] = xml2obj_func(c);
+									else
+										hold_return[c.tagName] = c.textContent;
+							}
+							return hold_return;
+						};
+						hold_mconf = xml2obj_func(m.getElementsByTagName('configuration')[0]);
 						var confModule = new ModuleConfiguration(hold_mconf);
 						current_promise = new Promise(
 							function(confModule, modulePerm, current_promise, resolve, reject){
