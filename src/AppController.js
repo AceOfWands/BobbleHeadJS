@@ -167,7 +167,10 @@ export default class AppController{
 							for(var c of ele.childNodes){
 								if(c instanceof Element)
 									if (c.hasChildNodes())
-										hold_return[c.tagName] = xml2obj_func(c);
+										if(c.childNodes.length == 1 && c.childNodes[0].nodeType == Node.TEXT_NODE)
+											hold_return[c.tagName] = c.textContent;
+										else
+											hold_return[c.tagName] = xml2obj_func(c);
 									else
 										hold_return[c.tagName] = c.textContent;
 							}
