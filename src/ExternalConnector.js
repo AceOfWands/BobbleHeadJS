@@ -23,7 +23,7 @@ export default class ExternalConnector{
 			xhttp.open(request.getMethod(), url, true);
 			for(var header of request.getHeaders())
 				xhttp.setRequestHeader(header.name, header.value);
-			xhttp.responseType = 'json';
+			xhttp.responseType = request.getResponseType();
 			xhttp.onreadystatechange = async function(){
 				var res = new Response();
 				if(xhttp.readyState === XMLHttpRequest.DONE){

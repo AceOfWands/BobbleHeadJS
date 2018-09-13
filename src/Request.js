@@ -1,5 +1,5 @@
 export default class Request{
-	constructor(method,uri,data,headers = {}){
+	constructor(method,uri,data,headers = {}, response_type = null){
 		this.method = method;
 		this.uri = uri;
 		if(data != null)
@@ -10,6 +10,7 @@ export default class Request{
 		for(var hname in this.headers)
 			if(this.headers[hname] && (typeof this.headers[hname] != 'string'))
 				this.headers[hname] = this.headers[hname].toString();
+		this.response_type = (response_type && typeof response_type != 'string') ? response_type.toString() : response_type;
 	}
 	setHeader(a,b = null){
 		if(this.headers==null)
@@ -26,6 +27,9 @@ export default class Request{
 	}
 	getUri(){
 		return this.uri;
+	}
+	getResponseType(){
+		return this.response_type || 'json';
 	}
 	*getHeaders(){
 		for(var x in this.headers){
