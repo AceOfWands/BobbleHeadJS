@@ -294,7 +294,7 @@ export default class PageBuilder{
 					if(!actual_models[model[1]])
 						throw new ModelNotFoundException(model[1]);
 					try{
-						var model_fetch = actual_models[model[1]].fetch(model[2]);
+						var model_fetch = sandbox.execMethod('fetch', [model[2]], actual_models[model[1]]);
 						if(model_fetch instanceof Promise)
 							wait_list.push(model_fetch);
 					}catch(e){
