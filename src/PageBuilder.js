@@ -250,7 +250,7 @@ export default class PageBuilder{
 			log(e);
 		});
 	}
-	buildPageFromHistory(historyNum, prevPageSrc){
+	buildPageFromHistory(historyNum){
 		var domcontainer = document.getElementById(this.container);
 		domcontainer.setAttribute("id", this.container+'-toDelete');
 		var newdomcontainer = document.getElementById('historyPage-'+historyNum);
