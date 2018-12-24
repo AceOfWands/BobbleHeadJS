@@ -47,7 +47,7 @@ export default class AccessController{
 			var usr = this.getCurrentUser();
 			if(usr){
 				var process = false;
-				if(page.roles.length > 0)
+				if(page.roles && page.roles.length > 0)
 					for(var i=0; i < page.roles.length; i++){
 						if(usr.hasRole(page.roles[i])){
 							process = true;
@@ -60,6 +60,10 @@ export default class AccessController{
 					this.currentAuthMethod.processPage(page);
 				else
 					throw new UnauthorizedException();
+			}else if(page.roles && page.roles.length > 0){
+				throw new UnauthorizedException();
+			}else{
+				this.currentAuthMethod.processPage(page);
 			}
 		}
 	}
