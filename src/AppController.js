@@ -293,10 +293,12 @@ export default class AppController{
 				if(accessController_conf){
 					var accessController_conf_name = accessController_conf.textContent;
 					try{
-						var accessControllerClass = getClassFromName(accessController_conf_name) ||
-							getClassFromName(accessController_conf_name, hiddenIfr.contentWindow);
-						if(!accessControllerClass)
-							throw new FrameworkException(pageBuilder_conf + ' isn\'t a valid AccessController');
+						if(accessController_conf_name){
+							var accessControllerClass = getClassFromName(accessController_conf_name) ||
+								getClassFromName(accessController_conf_name, hiddenIfr.contentWindow);
+							if(!accessControllerClass)
+								throw new FrameworkException(accessController_conf_name + ' isn\'t a valid AccessController');
+						}
 						globalContext.accessController = accessController_conf_name ?
 							new (accessControllerClass)():
 							new AccessController();
