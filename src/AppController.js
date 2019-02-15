@@ -61,6 +61,7 @@ export default class AppController{
 			var cache_whitelist = [];
 			var cache_blacklist = [];
 			var cache_maxcached = 1000;
+			var cache_default = true;
 			var cacher_conf = (temp_configuration.getElementsByTagName('cacher')[0]);
 			if(cacher_conf){
 				if(cacher_conf.getAttribute('max-cached'))
@@ -73,8 +74,10 @@ export default class AppController{
 					for( var p of cacher_conf.getElementsByTagName('persist')){
 						cache_whitelist.push(p.getAttribute('url'));
 					}
+				if(cacher_conf.getAttribute('default') && cacher_conf.getAttribute('default') == 'nocache')
+					cache_default = false;
 			}
-			var cacher_promise = Cacher.init(cache_maxcached, cache_whitelist, cache_blacklist);
+			var cacher_promise = Cacher.init(cache_default, cache_maxcached, cache_whitelist, cache_blacklist);
 			var page_container = temp_configuration.getElementsByTagName('pages')[0];
 			var pages_index = page_container.getElementsByTagName('index')[0];
 			var pages_path = page_container.getAttribute('path');

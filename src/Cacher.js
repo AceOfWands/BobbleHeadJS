@@ -4,7 +4,7 @@ import CacherRequest from './CacherRequest.js';
 import CacherLoadedEvent from './Events/CacherLoadedEvent.js';
 
 export default class Cacher{
-	static init(maxcached, whitelist, blacklist){
+	static init(cacheDefault, maxcached, whitelist, blacklist){
 		return new Promise(function(resolve, reject){
 			var db = Database.getInstance(true);
 			db.get('cacheMap').then(function(cacheMap) {
@@ -59,6 +59,7 @@ export default class Cacher{
 			Cacher.whitelist = whitelist;
 			Cacher.blacklist = blacklist;
 			Cacher.maxCached = maxcached;
+			Cacher.cacheDefault = cacheDefault;
 		}.bind(this)).catch(function(e) {
 			log(e);
 		});
@@ -110,7 +111,7 @@ export default class Cacher{
 					}
 					if(hold!=null)
 						hold.then(incNodeFunc.bind(this, db)).catch(function(){log('URL in whitelist', 0, 'Cannot retrive node from Cacher heap')});
-				}else{
+				}else if(Cacher.cacheDefault || Cacher.whitelist.indexOf(request.uri) > -1){
 					if(Cacher.cacheMap.length > Cacher.maxCached)
 						for(var i = Cacher.nodesPartNum; i>0; i--){
 							var hold = Cacher.cacheHeap.pop();
@@ -191,4 +192,5 @@ Cacher.cacheMap = null;
 Cacher.whitelist = null;
 Cacher.blacklist = null;
 Cacher.maxCached = 1000;
+Cacher.cacheDefault = true;
 Cacher.nodesPartNum = 3;

@@ -47,7 +47,6 @@ export default class ExternalConnector{
 					if(!response)
 						response = xhttp.response;
 					if(response){
-						res.code = 0;
 						res.content = response;
 					}else if(xhttp.status === 200){
 						res.code = -11;
