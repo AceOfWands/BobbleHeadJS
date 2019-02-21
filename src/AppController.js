@@ -58,6 +58,15 @@ export default class AppController{
 				hold_conf.base_url = document.location.protocol + '//' + document.location.host + path.join('/');
 			}
 			var pageBuilder_conf = (temp_configuration.getElementsByTagName('pageBuilder')[0]);
+			var database_conf = (temp_configuration.getElementsByTagName('database')[0]);
+			if(database_conf){
+				var custom_confs_db = {};
+				if(database_conf.getAttribute('revs-limit'))
+					custom_confs_db.revs_limit = parseInt(database_conf.getAttribute('revs-limit'));
+				if(database_conf.getAttribute('compaction'))
+					custom_confs_db.auto_compaction = database_conf.getAttribute('compaction') == 'true';
+				Database.setConfigs(custom_confs_db);
+			}
 			var cache_whitelist = [];
 			var cache_blacklist = [];
 			var cache_maxcached = 1000;
