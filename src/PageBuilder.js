@@ -22,6 +22,11 @@ export default class PageBuilder{
 		this.documentProxy = null;
 		this.currentPage = null;
 		this.transition = null;
+		this.timers = {
+			timeouts: [],
+			intervals: [],
+			stack: []
+		};
 		(function(Node) {
 			Node.prototype.__addEventListener = Node.prototype.addEventListener;
 			Node.prototype.addEventListener = function addEventListener(types, listener, useCapture) {
@@ -69,6 +74,22 @@ export default class PageBuilder{
 				}
 			};
 		})(window.Node);
+		(function(w, o) {
+			w.__setTimeout = w.setTimeout;
+			w.setTimeout = function setTimeout(){
+				var id = w.__setTimeout(...arguments);
+				if(id)
+					o.timers.timeouts.push([id,arguments,Date.now()+(arguments.length>1 ? arguments[1] : 0)]);
+				return id;
+			};
+			w.__setInterval = w.setInterval;
+			w.setInterval = function setInterval(){
+				var id = w.__setInterval(...arguments);
+				if(id)
+					o.timers.intervals.push([id,arguments]);
+				return id;
+			};
+		})(window, this);
 	}
 	checkPage(page){
 		var context = Context.getGlobal();
@@ -120,6 +141,51 @@ export default class PageBuilder{
 				}
 			}
 		}
+	}
+	resumeTimers(){
+		var [touts,ints] = this.timers.stack.pop();
+		for(var ts of touts){
+			var args = ts[0];
+			args[1] = ts[1];
+			setTimeout(...args);
+		}
+		for(var args of ints){
+			setInterval(...args);
+		}
+	}
+	pauseTimers(){
+		var touts = [];
+		while(this.timers.timeouts.length>0){
+			var t = this.timers.timeouts.pop();
+			var rest = Date.now() - t[2];
+			if(rest < 0){
+				touts.push([t[1],-1*rest]);
+				this.clearTimer(PageBuilder.Timers.TIMEOUT, t[0]);
+			}
+		}
+		var ints = [];
+		while(this.timers.intervals.length>0){
+			var t = this.timers.intervals.pop();
+			ints.push(t[1]);
+			this.clearTimer(PageBuilder.Timers.INTERVAL, t[0]);
+		}
+		this.timers.stack.push([touts,ints]);
+	}
+	clearTimers(){
+		while(this.timers.timeouts.length>0){
+			var t = this.timers.timeouts.pop();
+			this.clearTimer(PageBuilder.Timers.TIMEOUT, t[0]);
+		}
+		while(this.timers.intervals.length>0){
+			var t = this.timers.intervals.pop();
+			this.clearTimer(PageBuilder.Timers.INTERVAL, t[0]);
+		}
+	}
+	clearTimer(type, id){
+		if(PageBuilder.Timers.TIMEOUT === type)
+			clearTimeout(id);
+		else if(PageBuilder.Timers.INTERVAL === type)
+			clearInterval(id);
 	}
 	makeTransition(domcontainer, newdomcontainer, transition){
 		var erase_prom = null;
@@ -226,8 +292,11 @@ export default class PageBuilder{
 					ghosting = true;
 				}
 				if(!page.lock && this.currentPage!=null && (page.vid != this.currentPage.page.vid || page.allowDuplicate)){
-					if(!ghosting && this.currentPage.page.keepLive)
+					if(!ghosting && this.currentPage.page.keepLive){
 						toHistory = true;
+						this.pauseTimers();
+					}else
+						this.clearTimers();
 					this.pageStack.push(this.currentPage);
 				}
 				if(page.lock)
@@ -413,7 +482,9 @@ export default class PageBuilder{
 				if(buildResult){
 					buildResult.then(function(){this.pageHop()}.bind(this));
 				}
+				this.resumeTimers();
 			}else{
+				this.clearTimers();
 				this.getNewContainer(false);
 				var pageBuild_mainFunc = function(){
 					this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
@@ -428,3 +499,6 @@ export default class PageBuilder{
 			throw new PageNotFoundException();
 	}
 }
+PageBuilder.Timers = {};
+PageBuilder.Timers.TIMEOUT = 0;
+PageBuilder.Timers.INTERVAL = 1;
