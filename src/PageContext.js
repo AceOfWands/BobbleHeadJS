@@ -7,6 +7,8 @@ export default class PageContext{
 		for(var x in globalContext){
 			this[x] = globalContext[x];
 		}
+		this.setTimeout = window.__setTimeout;
+		this.setInterval = window.__setInterval;
 		return new Sandbox(domcontainer, this);
 	}
 }

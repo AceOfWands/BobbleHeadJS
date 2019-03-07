@@ -75,16 +75,14 @@ export default class PageBuilder{
 			};
 		})(window.Node);
 		(function(w, o) {
-			w.__setTimeout = w.setTimeout;
-			w.setTimeout = function setTimeout(){
-				var id = w.__setTimeout(...arguments);
+			w.__setTimeout = function setTimeout(){
+				var id = w.setTimeout(...arguments);
 				if(id)
 					o.timers.timeouts.push([id,arguments,Date.now()+(arguments.length>1 ? arguments[1] : 0)]);
 				return id;
 			};
-			w.__setInterval = w.setInterval;
-			w.setInterval = function setInterval(){
-				var id = w.__setInterval(...arguments);
+			w.__setInterval = function setInterval(){
+				var id = w.setInterval(...arguments);
 				if(id)
 					o.timers.intervals.push([id,arguments]);
 				return id;
@@ -147,10 +145,10 @@ export default class PageBuilder{
 		for(var ts of touts){
 			var args = ts[0];
 			args[1] = ts[1];
-			setTimeout(...args);
+			window.__setTimeout(...args);
 		}
 		for(var args of ints){
-			setInterval(...args);
+			window.__setInterval(...args);
 		}
 	}
 	pauseTimers(){
@@ -180,6 +178,10 @@ export default class PageBuilder{
 			var t = this.timers.intervals.pop();
 			this.clearTimer(PageBuilder.Timers.INTERVAL, t[0]);
 		}
+	}
+	flushTimers(){
+		this.timers.stack = [];
+		this.clearTimers();
 	}
 	clearTimer(type, id){
 		if(PageBuilder.Timers.TIMEOUT === type)
@@ -299,8 +301,10 @@ export default class PageBuilder{
 						this.clearTimers();
 					this.pageStack.push(this.currentPage);
 				}
-				if(page.lock)
+				if(page.lock){
 					this.pageStack = [];
+					this.flushTimers();
+				}
 				var domcontainer = this.getNewContainer(toHistory);
 				var pageBuild_mainFunc = function(domcontainer){
 					var pageContx = new PageContext(domcontainer);
@@ -476,6 +480,7 @@ export default class PageBuilder{
 		if(vpage){
 			this.currentPage = vpage;
 			this.checkVirtualPage(vpage);
+			this.clearTimers();
 			if(vpage.page.keepLive){
 				var hNum = (document.querySelectorAll('*[id^="historyPage-"]').length);
 				var buildResult = this.buildPageFromHistory(hNum - 1, vpage.page.path);
@@ -484,7 +489,6 @@ export default class PageBuilder{
 				}
 				this.resumeTimers();
 			}else{
-				this.clearTimers();
 				this.getNewContainer(false);
 				var pageBuild_mainFunc = function(){
 					this.buildPageByObject(vpage.page, vpage.data, vpage.context, vpage.success, vpage.fail);
