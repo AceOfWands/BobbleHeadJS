@@ -11,7 +11,7 @@ export function defaultCallback(){
 	if(arguments.length>0)
 		log(arguments);
 };
-export const isRemoteURIPattern = /^http[s]?:\/\//i;
+export const isRemoteURIPattern = /^(ftp[s]?|http[s]?|file):\/\//i;
 export const vidInURIPattern = /^([0-9]+|back)\/?/;
 export const strInURIPattern = /^([\w]+)\/?/;
 export function getClassFromName(str, top = window){
