@@ -16,19 +16,19 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
-    "@babel/core": "^7.3.3",
-    "@babel/plugin-transform-async-to-generator": "^7.2.0",
-    "@babel/plugin-transform-runtime": "^7.2.0",
-    "@babel/preset-env": "^7.3.1",
-    "@babel/runtime": "^7.3.1",
-    "babel-loader": "^8.0.5",
+    "@babel/core": "^7.5.5",
+    "@babel/plugin-transform-async-to-generator": "^7.5.0",
+    "@babel/plugin-transform-runtime": "^7.5.5",
+    "@babel/preset-env": "^7.5.5",
+    "@babel/runtime": "^7.5.5",
+    "babel-loader": "^8.0.6",
     "clean-webpack-plugin": "^0.1.19",
     "css-loader": "^0.28.11",
     "expose-loader": "^0.7.5",
     "style-loader": "^0.21.0",
-    "webpack": "^4.29.4",
-    "webpack-cli": "^3.2.3",
-    "webpack-merge": "^4.2.1"
+    "webpack": "^4.39.3",
+    "webpack-cli": "^3.3.7",
+    "webpack-merge": "^4.2.2"
   },
   "dependencies": {
     "js-sandbox": "^1.0.6",
