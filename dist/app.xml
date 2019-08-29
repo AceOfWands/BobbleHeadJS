@@ -13,7 +13,7 @@
 			vid="1"
 			noback="false"
 			modulesAllowed="test"
-			rolesAllowed="user"
+			rolesAllowed=""
 			keepLive="true"
 			allowDuplicate="true"
 			ghostPage="false"
