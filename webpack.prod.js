@@ -1,12 +1,15 @@
 const merge = require('webpack-merge');
 const common = require('./webpack.common.js');
 const path = require('path');
-const CleanWebpackPlugin = require('clean-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 module.exports = merge(common, {
 	mode: 'production',
 	plugins: [
-		new CleanWebpackPlugin(['dist/js/bobblehead.min.js'])
+		new CleanWebpackPlugin({
+			verbose: true,
+			cleanOnceBeforeBuildPatterns: ['dist/js/bobblehead.min.js']
+		})
 	],
 	output: {
 		filename: '[name].min.js',
