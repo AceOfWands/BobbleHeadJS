@@ -3,8 +3,8 @@ import ConnectorRequest from './ConnectorRequest.js';
 import md5 from 'md5-jkmyers';
 
 export default class CacherRequest extends Request{
-	constructor(method,uri,data,headers = {},response_type = null){
-		super(method,uri,data,headers,response_type);
+	constructor(method,uri,data,headers = {},options = null){
+		super(method,uri,data,headers,options);
 		var promises = this.promise;
 		delete this.promise;
 		return promises || this;
@@ -41,11 +41,11 @@ export default class CacherRequest extends Request{
 			for(var x in this.data)
 				toData.append(x, this.data[x]);
 		}
-		return new ConnectorRequest(this.method,this.uri,toData,this.headers,this.response_type);
+		return new ConnectorRequest(this.method,this.uri,toData,this.headers,this.options);
 	}
 	static fromObject(obj){
 		if(('method' in obj) && ('uri' in obj) && ('data' in obj))
-			return new CacherRequest(obj.method,obj.uri,obj.data,obj.headers || undefined,obj.response_type || undefined);
+			return new CacherRequest(obj.method,obj.uri,obj.data,obj.headers || undefined,obj.options || undefined);
 		return null;
 	}
 	equal(x){

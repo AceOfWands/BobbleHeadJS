@@ -3,8 +3,8 @@ import CacherRequest from './CacherRequest.js';
 import md5 from 'md5-jkmyers';
 
 export default class ConnectorRequest extends Request{
-	constructor(method,uri,data,headers = {},response_type = null){
-		super(method,uri,data,headers,response_type);	
+	constructor(method,uri,data,headers = {},options = null){
+		super(method,uri,data,headers,options);	
 	}
 	getDataAsObject(){
 		var r = null;
@@ -70,6 +70,6 @@ export default class ConnectorRequest extends Request{
 		return !promises ? true : Promise.all(promises);
 	}
 	toCacherRequest(){
-		return new CacherRequest(this.method,this.uri,this.data,this.headers,this.response_type);
+		return new CacherRequest(this.method,this.uri,this.data,this.headers,this.options);
 	}
 }

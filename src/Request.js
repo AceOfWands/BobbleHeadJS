@@ -1,5 +1,5 @@
 export default class Request{
-	constructor(method,uri,data,headers = {}, response_type = null){
+	constructor(method,uri,data,headers = {}, options = null){
 		this.method = method;
 		this.uri = uri;
 		if(data != null)
@@ -10,7 +10,23 @@ export default class Request{
 		for(var hname in this.headers)
 			if(this.headers[hname] && (typeof this.headers[hname] != 'string'))
 				this.headers[hname] = this.headers[hname].toString();
-		this.response_type = (response_type && typeof response_type != 'string') ? response_type.toString() : response_type;
+		if(options && (typeof options === "string")){
+			let o = options.split(";");
+			options = {};
+			for(let i=0; i < o.length; i++){
+				o[i] = o[i].trim();
+				if(o[i].startsWith("response_type:"))
+					options.response_type = o[i].substr(14).trim();
+				else if(o[i].startsWith("timeout:"))
+					try{
+						options.timeout = parseInt(o[i].substr(8).trim());
+					}catch{}
+			}
+		}
+		this.options = {
+			'response_type': (options && options.response_type) ? options.response_type : 'json',
+			'timeout': (options && options.timeout) ? options.timeout : null
+		};
 	}
 	setHeader(a,b = null){
 		if(this.headers==null)
@@ -29,7 +45,10 @@ export default class Request{
 		return this.uri;
 	}
 	getResponseType(){
-		return this.response_type || 'json';
+		return this.options.response_type;
+	}
+	getTimeout(){
+		return this.options.timeout;
 	}
 	*getHeaders(){
 		for(var x in this.headers){

@@ -19,7 +19,7 @@ export default class Cacher{
 						var holdNodeArray = [];
 						for(var i in cacheHeap.array){
 							var _val = (cacheHeap.array[i]).value;
-							var val = new CacherRequest(_val.method,_val.uri,_val.data,_val.headers,_val.response_type);
+							var val = new CacherRequest(_val.method,_val.uri,_val.data,_val.headers,_val.options);
 							holdNodeArray.push(new HeapNode((cacheHeap.array[i]).key, val));
 						}
 						var rev = cacheHeap._rev;
