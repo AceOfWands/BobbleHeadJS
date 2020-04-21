@@ -121,274 +121,288 @@ export default class AppController{
 			}
 			var module_container = temp_configuration.getElementsByTagName('modules')[0];
 			var current_promise = null;
+			var hiddenIfr = null;
+			let hiddenIfrPromise = Promise.resolve();
 			if(module_container){
 				var modules_path = module_container.getAttribute('path');
 				if(!modules_path.startsWith(hold_conf.base_url))
 					modules_path = absoluteURL(hold_conf.base_url, modules_path, false);
 				var moduleConfs = {};
-				var hiddenIfr = document.createElement('iframe');
+				hiddenIfr = document.createElement('iframe');
 				hiddenIfr.style.display = 'none';
-				document.body.appendChild(hiddenIfr);
-				for(var v in window){
-					if(!(v in hiddenIfr.contentWindow))
-						hiddenIfr.contentWindow[v] = window[v];
-				}
-				hiddenIfr.contentWindow.Promise = window.Promise;
-				hiddenIfr.contentWindow.Array = window.Array;
-				hiddenIfr.contentWindow.Element = window.Element;
-				hiddenIfr.contentWindow._document = new Proxy(document, {
-					container: document.getElementById(hold_conf.container),
-					whiteList: [
-						'querySelector',
-						'getElementById',
-						'dispatchEvent',
-						'createElement'
-					],
-					get: function(target, name) {
-						var ret = ((typeof target[name] != 'function') || this.whiteList.indexOf(name)!=-1) ?
-							target[name] :
-							undefined;
-						if(typeof ret == 'function' && name != 'createElement'){
-							ret = function(next){
-								var args = [];
-								for(var i=1; i<arguments.length; i++)
-									args[i-1] = arguments[i];
-								var res = next.apply(document, args);
-								if(res instanceof Node){
-									var hold = res;
-									while (hold = hold.parentNode)
-										if (hold == this)
-											return res;
-									return this;
+				hiddenIfrPromise = new Promise(function(ifrResolved, ifrCancelled){
+					hiddenIfr.addEventListener("load", function(){
+						for(let v in window){
+							if(!(v in hiddenIfr.contentWindow))
+								try{
+									hiddenIfr.contentWindow[v] = window[v];
+								}catch(e){
+									if(!(e instanceof TypeError))
+										throw e;
 								}
-							}.bind(this.container,ret);
-							
 						}
-						return ret.bind(target);
-					},
-					set: function(obj, prop, value) {
-						return false;
-					}
-				});
-				for( var m of module_container.getElementsByTagName('module')){
-					if(m.getAttribute('enabled') == 'true'){
-						var hold_mconf = {};
-						var modulePerm = m.getAttribute('permissions') ? m.getAttribute('permissions').split(',') : [];
-						var xml2obj_func = function(ele){
-							var hold_return = {};
-							for(var c of ele.childNodes){
-								if(c instanceof Element)
-									if (c.hasChildNodes())
-										if(c.childNodes.length == 1 && c.childNodes[0].nodeType == Node.TEXT_NODE)
-											hold_return[c.tagName] = c.textContent;
-										else
-											hold_return[c.tagName] = xml2obj_func(c);
-									else
-										hold_return[c.tagName] = c.textContent;
-							}
-							return hold_return;
-						};
-						hold_mconf = xml2obj_func(m.getElementsByTagName('configuration')[0]);
-						var confModule = new ModuleConfiguration(hold_mconf);
-						current_promise = new Promise(
-							function(confModule, modulePerm, current_promise, resolve, reject){
-								var mod_load_func = function(confModule, modulePerm, resolve){
-									var script = document.createElement("script");
-									script.src = modules_path + m.getAttribute('path');
-									script.type = 'module';
-									script.onload = function(modules, configuration, permissions, callback){
-										while(modules.length>0){
-											var sm = modules.shift();
-											moduleConfs[sm.name] = configuration;
-											ModulePool.addModule(sm, permissions);
+						hiddenIfr.contentWindow.Promise = window.Promise;
+						hiddenIfr.contentWindow.Array = window.Array;
+						hiddenIfr.contentWindow.Element = window.Element;
+						hiddenIfr.contentWindow._document = new Proxy(document, {
+							container: document.getElementById(hold_conf.container),
+							whiteList: [
+								'querySelector',
+								'getElementById',
+								'dispatchEvent',
+								'createElement'
+							],
+							get: function(target, name) {
+								var ret = ((typeof target[name] != 'function') || this.whiteList.indexOf(name)!=-1) ?
+									target[name] :
+									undefined;
+								if(typeof ret == 'function' && name != 'createElement'){
+									ret = function(next){
+										var args = [];
+										for(var i=1; i<arguments.length; i++)
+											args[i-1] = arguments[i];
+										var res = next.apply(document, args);
+										if(res instanceof Node){
+											var hold = res;
+											while (hold = hold.parentNode)
+												if (hold == this)
+													return res;
+											return this;
 										}
-										callback();
-									}.bind(script, this.moduleOnLoad, confModule, modulePerm, resolve);
-									if(modules_path.startsWith('file:')){
-										var prefetchxhr = new XMLHttpRequest();
-										prefetchxhr.onload = function(m, script, hiddenIfr, e){
-											let blob = prefetchxhr.response;
-											let newblob = new Blob([blob], {type: 'text/javascript'});
-											script.src = URL.createObjectURL(newblob);
-											hiddenIfr.contentDocument.head.appendChild(script);
-										}.bind(this, m, script, hiddenIfr);
-										prefetchxhr.open('get', modules_path + m.getAttribute('path'));
-										prefetchxhr.responseType = 'blob';
-										prefetchxhr.send();
-									}else
-										hiddenIfr.contentDocument.head.appendChild(script);
-								}.bind(this, confModule, modulePerm, resolve);
-								if(current_promise!=null)
-									current_promise.then(mod_load_func);
-								else
-									mod_load_func();
-							}.bind(this, confModule, modulePerm, current_promise)
-						).catch(function(e) {
-							log(e);
+									}.bind(this.container,ret);
+									
+								}
+								return ret.bind(target);
+							},
+							set: function(obj, prop, value) {
+								return false;
+							}
 						});
-					}
-				}
+						for( var m of module_container.getElementsByTagName('module')){
+							if(m.getAttribute('enabled') == 'true'){
+								var hold_mconf = {};
+								var modulePerm = m.getAttribute('permissions') ? m.getAttribute('permissions').split(',') : [];
+								var xml2obj_func = function(ele){
+									var hold_return = {};
+									for(var c of ele.childNodes){
+										if(c instanceof Element)
+											if (c.hasChildNodes())
+												if(c.childNodes.length == 1 && c.childNodes[0].nodeType == Node.TEXT_NODE)
+													hold_return[c.tagName] = c.textContent;
+												else
+													hold_return[c.tagName] = xml2obj_func(c);
+											else
+												hold_return[c.tagName] = c.textContent;
+									}
+									return hold_return;
+								};
+								hold_mconf = xml2obj_func(m.getElementsByTagName('configuration')[0]);
+								var confModule = new ModuleConfiguration(hold_mconf);
+								current_promise = new Promise(
+									function(m, confModule, modulePerm, current_promise, resolve, reject){
+										var mod_load_func = function(m, confModule, modulePerm, resolve){
+											var script = document.createElement("script");
+											script.src = modules_path + m.getAttribute('path');
+											script.type = 'module';
+											script.onload = function(modules, configuration, permissions, callback){
+												while(modules.length>0){
+													var sm = modules.shift();
+													moduleConfs[sm.name] = configuration;
+													ModulePool.addModule(sm, permissions);
+												}
+												callback();
+											}.bind(script, this.moduleOnLoad, confModule, modulePerm, resolve);
+											if(modules_path.startsWith('file:')){
+												var prefetchxhr = new XMLHttpRequest();
+												prefetchxhr.onload = function(m, script, hiddenIfr, e){
+													let blob = prefetchxhr.response;
+													let newblob = new Blob([blob], {type: 'text/javascript'});
+													script.src = URL.createObjectURL(newblob);
+													hiddenIfr.contentDocument.head.appendChild(script);
+												}.bind(this, m, script, hiddenIfr);
+												prefetchxhr.open('get', modules_path + m.getAttribute('path'));
+												prefetchxhr.responseType = 'blob';
+												prefetchxhr.send();
+											}else
+												hiddenIfr.contentDocument.head.appendChild(script);
+										}.bind(this, m, confModule, modulePerm, resolve);
+										if(current_promise!=null)
+											current_promise.then(mod_load_func);
+										else
+											mod_load_func();
+									}.bind(this, m, confModule, modulePerm, current_promise)
+								).catch(function(e) {
+									log(e);
+								});
+							}
+						}
+						var newBaseIfr = hiddenIfr.contentDocument.createElement("base");
+						newBaseIfr.setAttribute("href", hold_conf.base_url+'/'+pages_path);
+						hiddenIfr.contentDocument.getElementsByTagName("head")[0].appendChild(newBaseIfr);
+						ifrResolved();
+					}.bind(this));
+					document.body.appendChild(hiddenIfr);
+				}.bind(this));
 			}
 			var newBase = document.createElement("base");
 			newBase.setAttribute("href", pages_path);
 			document.getElementsByTagName("head")[0].appendChild(newBase);
-			var newBaseIfr = hiddenIfr.contentDocument.createElement("base");
-			newBaseIfr.setAttribute("href", hold_conf.base_url+'/'+pages_path);
-			hiddenIfr.contentDocument.getElementsByTagName("head")[0].appendChild(newBaseIfr);
-			Promise.all([cacher_promise, current_promise]).then(function(){
-				var globalContext = Context.getGlobal();
-				globalContext.BobbleHead = new Proxy(BobbleHead, {
-					whiteList: [
-						'User',
-						'Role',
-						'Session',
-						'Response',
-						'Request',
-						'ConnectorRequest',
-						'Model',
-						'ModelInstance',
-						'Route',
-						'Page',
-						'PageContext',
-						'AuthenticationMethod',
-						'AuthenticationMethods',
-						'PageFactory',
-						'VirtualPage',
-						'Exceptions',
-						'Errors',
-						'Events',
-						'Util'
-					],
-					get: function(target, name) {
-						return (name in target && this.whiteList.indexOf(name)!=-1) ?
-							target[name] :
-							null;
-					}
-				});
-				if(pageBuilder_conf){
-					pageBuilder_conf = pageBuilder_conf.textContent;
-					try{
-						var pageBuildClass = getClassFromName(pageBuilder_conf) ||
-							getClassFromName(pageBuilder_conf, hiddenIfr.contentWindow);
-						if(!pageBuildClass)
-							throw new FrameworkException(pageBuilder_conf + ' isn\'t a valid PageBuilder');
-						globalContext.pageBuilder = pageBuilder_conf ?
-							new (pageBuildClass)() :
-							new PageBuilder();
-					}catch(e){
-						log(e);
+			hiddenIfrPromise.then(function(){
+				Promise.all([cacher_promise, current_promise]).then(function(){
+					var globalContext = Context.getGlobal();
+					globalContext.BobbleHead = new Proxy(BobbleHead, {
+						whiteList: [
+							'User',
+							'Role',
+							'Session',
+							'Response',
+							'Request',
+							'ConnectorRequest',
+							'Model',
+							'ModelInstance',
+							'Route',
+							'Page',
+							'PageContext',
+							'AuthenticationMethod',
+							'AuthenticationMethods',
+							'PageFactory',
+							'VirtualPage',
+							'Exceptions',
+							'Errors',
+							'Events',
+							'Util'
+						],
+						get: function(target, name) {
+							return (name in target && this.whiteList.indexOf(name)!=-1) ?
+								target[name] :
+								null;
+						}
+					});
+					if(pageBuilder_conf){
+						pageBuilder_conf = pageBuilder_conf.textContent;
+						try{
+							var pageBuildClass = getClassFromName(pageBuilder_conf) ||
+								getClassFromName(pageBuilder_conf, hiddenIfr.contentWindow);
+							if(!pageBuildClass)
+								throw new FrameworkException(pageBuilder_conf + ' isn\'t a valid PageBuilder');
+							globalContext.pageBuilder = pageBuilder_conf ?
+								new (pageBuildClass)() :
+								new PageBuilder();
+						}catch(e){
+							log(e);
+							globalContext.pageBuilder = new PageBuilder();
+						}
+					}else
 						globalContext.pageBuilder = new PageBuilder();
-					}
-				}else
-					globalContext.pageBuilder = new PageBuilder();
-				globalContext.pageBuilder.container = hold_conf.container;
-				globalContext.pageBuilder.transition = pages_transition;
-				var defaultConnector_conf = (temp_configuration.getElementsByTagName('defaultConnector')[0]);
-				if(defaultConnector_conf){
-					defaultConnector_conf = defaultConnector_conf.textContent;
-					try{
-						var defConnClass = getClassFromName(defaultConnector_conf) ||
-							getClassFromName(defaultConnector_conf, hiddenIfr.contentWindow);
-						if(!defConnClass)
-							throw new FrameworkException(defaultConnector_conf + ' isn\'t a valid GenericConnector');
-						globalContext.defaultConnector = defaultConnector_conf ?
-							new (defConnClass)() :
-							new GenericConnector();
-					}catch(e){
-						log(e);
+					globalContext.pageBuilder.container = hold_conf.container;
+					globalContext.pageBuilder.transition = pages_transition;
+					var defaultConnector_conf = (temp_configuration.getElementsByTagName('defaultConnector')[0]);
+					if(defaultConnector_conf){
+						defaultConnector_conf = defaultConnector_conf.textContent;
+						try{
+							var defConnClass = getClassFromName(defaultConnector_conf) ||
+								getClassFromName(defaultConnector_conf, hiddenIfr.contentWindow);
+							if(!defConnClass)
+								throw new FrameworkException(defaultConnector_conf + ' isn\'t a valid GenericConnector');
+							globalContext.defaultConnector = defaultConnector_conf ?
+								new (defConnClass)() :
+								new GenericConnector();
+						}catch(e){
+							log(e);
+							globalContext.defaultConnector = new GenericConnector();
+						}
+					}else
 						globalContext.defaultConnector = new GenericConnector();
-					}
-				}else
-					globalContext.defaultConnector = new GenericConnector();
-				var accessController_conf = (temp_configuration.getElementsByTagName('accessController')[0]);
-				var accesscontroller_promise = null;
-				if(accessController_conf){
-					var accessController_conf_name = accessController_conf.textContent;
-					try{
-						if(accessController_conf_name){
-							var accessControllerClass = getClassFromName(accessController_conf_name) ||
-								getClassFromName(accessController_conf_name, hiddenIfr.contentWindow);
-							if(!accessControllerClass)
-								throw new FrameworkException(accessController_conf_name + ' isn\'t a valid AccessController');
+					var accessController_conf = (temp_configuration.getElementsByTagName('accessController')[0]);
+					var accesscontroller_promise = null;
+					if(accessController_conf){
+						var accessController_conf_name = accessController_conf.textContent;
+						try{
+							if(accessController_conf_name){
+								var accessControllerClass = getClassFromName(accessController_conf_name) ||
+									getClassFromName(accessController_conf_name, hiddenIfr.contentWindow);
+								if(!accessControllerClass)
+									throw new FrameworkException(accessController_conf_name + ' isn\'t a valid AccessController');
+							}
+							globalContext.accessController = accessController_conf_name ?
+								new (accessControllerClass)():
+								new AccessController();
+							accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method'));
+						}catch(e){
+							log(e);
+							globalContext.accessController = new AccessController();
+							accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method') || 'none')
 						}
-						globalContext.accessController = accessController_conf_name ?
-							new (accessControllerClass)():
-							new AccessController();
-						accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method'));
-					}catch(e){
-						log(e);
+					}else{
 						globalContext.accessController = new AccessController();
-						accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method') || 'none')
+						accesscontroller_promise = globalContext.accessController.init('none');
 					}
-				}else{
-					globalContext.accessController = new AccessController();
-					accesscontroller_promise = globalContext.accessController.init('none');
-				}
-				globalContext.localDatabase = Database.getInstance();
-				accesscontroller_promise.then(function(){
-					var otherPromises = [];
-					for(var sm of ModulePool.getModules()){
-						var mContext = globalContext.clone();
-						var mPerms = [];
-						for(var mp of ModulePool.getModulePermissions(sm.name)){
-							if(mp == 'pages'){
-								mPerms = mPerms.concat(['PageFactory', 'PageConfiguration']);
-							}else if(mp == 'users'){
-								mPerms = mPerms.concat(['UserPool', 'RolePool']);
-							}else if(mp == 'models'){
-								mPerms = mPerms.concat(['ModelPool']);
+					globalContext.localDatabase = Database.getInstance();
+					accesscontroller_promise.then(function(){
+						var otherPromises = [];
+						for(var sm of ModulePool.getModules()){
+							var mContext = globalContext.clone();
+							var mPerms = [];
+							for(var mp of ModulePool.getModulePermissions(sm.name)){
+								if(mp == 'pages'){
+									mPerms = mPerms.concat(['PageFactory', 'PageConfiguration']);
+								}else if(mp == 'users'){
+									mPerms = mPerms.concat(['UserPool', 'RolePool']);
+								}else if(mp == 'models'){
+									mPerms = mPerms.concat(['ModelPool']);
+								}
 							}
+							mContext.BobbleHead = new Proxy(BobbleHead, {
+								whiteList: [
+									'User',
+									'Role',
+									'Session',
+									'Response',
+									'Request',
+									'ConnectorRequest',
+									'Model',
+									'ModelInstance',
+									'Route',
+									'Page',
+									'PageContext',
+									'AuthenticationMethod',
+									'AuthenticationMethods',
+									'VirtualPage',
+									'Exceptions',
+									'Errors',
+									'Events',
+									'Util',
+									'XMLParser'
+								].concat(mPerms),
+								moduleName: sm.name,
+								get: function(target, name) {
+									if(name in target && this.whiteList.indexOf(name)!=-1)
+										return target[name];
+									else
+										throw new FrameworkException('Unpermitted access to '+name+' from '+this.moduleName);
+								}
+							});
+							var sandbox = new Sandbox(document.getElementById(hold_conf.container), mContext);
+							var initReturn = sandbox.execMethod('init', [moduleConfs[sm.name]], sm);
+							if(initReturn instanceof Promise)
+								otherPromises.push(initReturn);
 						}
-						mContext.BobbleHead = new Proxy(BobbleHead, {
-							whiteList: [
-								'User',
-								'Role',
-								'Session',
-								'Response',
-								'Request',
-								'ConnectorRequest',
-								'Model',
-								'ModelInstance',
-								'Route',
-								'Page',
-								'PageContext',
-								'AuthenticationMethod',
-								'AuthenticationMethods',
-								'VirtualPage',
-								'Exceptions',
-								'Errors',
-								'Events',
-								'Util',
-								'XMLParser'
-							].concat(mPerms),
-							moduleName: sm.name,
-							get: function(target, name) {
-								if(name in target && this.whiteList.indexOf(name)!=-1)
-									return target[name];
-								else
-									throw new FrameworkException('Unpermitted access to '+name+' from '+this.moduleName);
+						if(pages_index){
+							hold_conf.index = parseInt(pages_index.getAttribute('vid'));
+							var index_data = null;
+							if(pages_index.getElementsByTagName('data')[0]){
+								index_data = {};
+								for(var c of (pages_index.getElementsByTagName('data')[0]).childNodes){
+									if(c instanceof Element)
+										index_data[c.tagName] = c.textContent;
+								}
 							}
-						});
-						var sandbox = new Sandbox(document.getElementById(hold_conf.container), mContext);
-						var initReturn = sandbox.execMethod('init', [moduleConfs[sm.name]], sm);
-						if(initReturn instanceof Promise)
-							otherPromises.push(initReturn);
-					}
-					if(pages_index){
-						hold_conf.index = parseInt(pages_index.getAttribute('vid'));
-						var index_data = null;
-						if(pages_index.getElementsByTagName('data')[0]){
-							index_data = {};
-							for(var c of (pages_index.getElementsByTagName('data')[0]).childNodes){
-								if(c instanceof Element)
-									index_data[c.tagName] = c.textContent;
-							}
+							Promise.all(otherPromises).then(function(index,index_data){
+								this.pageBuilder.buildPage(index,index_data);
+							}.bind(globalContext,hold_conf.index,index_data));
 						}
-						Promise.all(otherPromises).then(function(index,index_data){
-							this.pageBuilder.buildPage(index,index_data);
-						}.bind(globalContext,hold_conf.index,index_data));
-					}
-					this.initialization = false;
+						this.initialization = false;
+					}.bind(this));
 				}.bind(this));
 			}.bind(this));
 		}catch(e){
