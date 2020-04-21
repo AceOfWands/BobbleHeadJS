@@ -5,7 +5,7 @@ It allows to create front-end in a really fast and simple way by Web languages a
 It simplifies the building of apps and websites providing ready-to-use resources useful to resolve most common app development problems.
 
 ![npm](https://img.shields.io/npm/v/npm.svg) 
-![webpack](https://img.shields.io/badge/webpack-v4.39.3-orange.svg) 
+![webpack](https://img.shields.io/badge/webpack-v4.41.0-orange.svg) 
 [![GitHub license](https://img.shields.io/github/license/AndXD/BobbleHeadCMS.svg)](https://github.com/AndXD/BobbleHeadCMS/blob/master/LICENSE)
 
 ## Features
