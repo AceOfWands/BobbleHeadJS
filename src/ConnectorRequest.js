@@ -38,7 +38,7 @@ export default class ConnectorRequest extends Request{
 		if(this.uri != x.getUri()) return false;
 		if(this.getResponseType() != x.getResponseType()) return false;
 		var xData = x.getData();
-		var promises = null;
+		var promises = [];
 		if(xData != null && this.data != null){
 			var size = 0;
 			if(x instanceof ConnectorRequest){
@@ -67,7 +67,7 @@ export default class ConnectorRequest extends Request{
 			}
 		}
 		else if(xData !== this.data) return false;
-		return !promises ? true : Promise.all(promises);
+		return (!promises || promises.length == 0) ? true : Promise.all(promises);
 	}
 	toCacherRequest(){
 		return new CacherRequest(this.method,this.uri,this.data,this.headers,this.options);
