@@ -172,7 +172,7 @@ export default class AppController{
 									}.bind(this.container,ret);
 									
 								}
-								return ret.bind(target);
+								return (typeof ret == 'function') ? ret.bind(target) : ret;
 							},
 							set: function(obj, prop, value) {
 								return false;
