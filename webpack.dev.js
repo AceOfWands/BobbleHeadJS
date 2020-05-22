@@ -7,7 +7,7 @@ module.exports = merge(common, {
 	plugins: [
 		new CleanWebpackPlugin({
 			verbose: true,
-			cleanOnceBeforeBuildPatterns: ['dist/js/bobblehead.js']
+			cleanOnceBeforeBuildPatterns: ['dist/bobblehead.js']
 		})
 	],
 	devtool: 'inline-source-map',

@@ -8,11 +8,11 @@ module.exports = merge(common, {
 	plugins: [
 		new CleanWebpackPlugin({
 			verbose: true,
-			cleanOnceBeforeBuildPatterns: ['dist/js/bobblehead.min.js']
+			cleanOnceBeforeBuildPatterns: ['dist/bobblehead.min.js']
 		})
 	],
 	output: {
 		filename: '[name].min.js',
-		path: path.resolve(__dirname, 'dist', 'js')
+		path: path.resolve(__dirname, 'dist')
 	}
 });
