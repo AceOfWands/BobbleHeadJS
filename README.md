@@ -1,6 +1,6 @@
 # BobbleHeadJS
 
-BobbleHeadJS is a pure-Javascript framework that uses HTML5, CSS and Javascript to generate your pages and to interface optionally with remote resources by means of a Controller-Model system.
+BobbleHeadJS is a pure-Javascript framework that uses HTML5, CSS and Javascript to generate your pages and to interface optionally with remote resources by means of a View-Controller system.
 It allows to create front-end in a really fast and simple way by Web languages and uses tools to keep all your page and all your functions alive also without an Internet connection.
 It simplifies the building of apps and websites providing ready-to-use resources useful to resolve most common app development problems.
 
