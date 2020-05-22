@@ -1,8 +1,6 @@
 # BobbleHeadJS
 
-BobbleHeadJS is a pure-Javascript framework that uses HTML5, CSS and Javascript to generate your pages and to interface optionally with remote resources by means of a View-Controller system.
-It allows to create front-end in a really fast and simple way by Web languages and uses tools to keep all your page and all your functions alive also without an Internet connection.
-It simplifies the building of apps and websites providing ready-to-use resources useful to resolve most common app development problems.
+BobbleHeadJS is a pure-Javascript framework that uses HTML5, CSS and Javascript to generate web applications. It realizes a View-Controller system where you can create front-ends in a really fast and simple way, by common web languages, and interact from it with your custom defined controller logic. It simplifies the building of applications providing ready-to-use resources useful to resolve most common app development problems.
 
 ![npm](https://img.shields.io/npm/v/npm.svg) 
 ![webpack](https://img.shields.io/badge/webpack-v4.42.0-orange.svg) 
@@ -10,13 +8,14 @@ It simplifies the building of apps and websites providing ready-to-use resources
 
 ## Features
 - Page Managing
-- Self-Caching for Offline Usage
+- Self-Caching for Remote Requests
 - Pages Access Control
 - Page Code Execution Isolation
 - Custom URL Managing
 - Default Network Communication
 - Cross-device
 - Cross-platform
+- Extensible Features
 
 ## Todo List
 - [ ] re-design models as repository component
@@ -29,4 +28,4 @@ It simplifies the building of apps and websites providing ready-to-use resources
 
 ## Usage
 
-See the [wiki](../../wiki)
+See the [wiki](../../wiki) or the _example_ in the source.
