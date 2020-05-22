@@ -19,7 +19,7 @@ It simplifies the building of apps and websites providing ready-to-use resources
 - Cross-platform
 
 ## Todo List
-- [ ] live models view
+- [ ] re-design models as repository component
 
 ## Library Used
 - PouchDB [github](https://github.com/pouchdb/pouchdb)
