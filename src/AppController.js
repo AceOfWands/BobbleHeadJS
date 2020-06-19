@@ -131,7 +131,15 @@ export default class AppController{
 				hiddenIfr = document.createElement('iframe');
 				hiddenIfr.style.display = 'none';
 				hiddenIfrPromise = new Promise(function(ifrResolved, ifrCancelled){
-					hiddenIfr.addEventListener("load", function(){
+					let flagContainer = {
+						alreadyExec: false
+					};
+					let operateOnIframe = function(flagContainer){
+						if(flagContainer.alreadyExec)
+							return;
+						else
+							flagContainer.alreadyExec = true;
+						
 						for(let v in window){
 							if(!(v in hiddenIfr.contentWindow))
 								try{
@@ -240,7 +248,39 @@ export default class AppController{
 						newBaseIfr.setAttribute("href", hold_conf.base_url+'/'+pages_path);
 						hiddenIfr.contentDocument.getElementsByTagName("head")[0].appendChild(newBaseIfr);
 						ifrResolved();
-					}.bind(this));
+					}.bind(this, flagContainer);
+					if(hiddenIfr.contentDocument && hiddenIfr.contentDocument.readyState == 'complete')
+						operateOnIframe();
+					else{
+						window.addEventListener('message', e => {
+							if (e['data'] === 'slave iframe loaded') {
+								operateOnIframe();
+							}
+						}, false);
+						
+						let poolingTryer = function(itself, iframe){
+							if(iframe.contentDocument && iframe.contentDocument.readyState == 'complete')
+								operateOnIframe();
+							else
+								setTimeout(itself, 200, itself, iframe);
+						};
+						
+						setTimeout(poolingTryer, 500, poolingTryer, hiddenIfr);
+					}
+					const iframeContentBlob = new Blob([`
+						<html>
+							<body onload="__fireloadedmessage()">
+								<script>
+									function __fireloadedmessage(){
+										setTimeout(() => {
+											window.parent.postMessage('slave iframe loaded', '*');
+										}, 0);
+									}
+								</script>
+							</body>
+						</html>
+					`], {type: 'text/html'});
+					hiddenIfr.src = window.URL.createObjectURL(iframeContentBlob);
 					document.body.appendChild(hiddenIfr);
 				}.bind(this));
 			}
