@@ -1,9 +1,8 @@
 import XMLParser from './XMLParser.js';
-import {log, absoluteURL, getClassFromName} from './Util.js';
+import {log, absoluteURL, getClassFromName, convertDomToMap} from './Util.js';
 import ModulePool from './ModulePool.js';
 import ModelPool from './ModelPool.js';
 import Router from './Router.js';
-import Cacher from './Cacher.js';
 import PageConfiguration from './PageConfiguration.js';
 import Page from './Page.js';
 import PageFactory from './PageFactory.js';
@@ -18,25 +17,42 @@ import NotSupportedEngineError from './Errors/NotSupportedEngineError.js';
 import Database from './Database.js';
 import FrameworkException from './Exceptions/FrameworkException.js';
 import Sandbox from 'js-sandbox';
+import Environment from './Util/Dom/Environment.js';
+import SafeBobbleHead from './SafeBobbleHead.js';
+import ExtendedDomElement from './Util/Dom/ExtendedDomElement.js';
 
 export default class AppController{
+
+	static getInstance(xmlConfiguration = null){
+		if(!AppController.instance)
+			AppController.instance = new AppController(xmlConfiguration);
+		else if(xmlConfiguration != null)
+			throw new FrameworkException("An instance of BobbleHead is already running");
+
+		return AppController.instance;
+	}
+
 	constructor(xmlConfiguration){
 		this.moduleOnLoad = [];
 		this.initialization = true;
 		XMLParser.parseUrl(xmlConfiguration,this.processConf.bind(this));
 	}
+
 	registerModel(model){
 		ModelPool.addModel(model);
 	}
+
 	registerModule(module){
 		if(this.initialization)
 			this.moduleOnLoad.push(module);
 		else
 			ModulePool.addModule(module);
 	}
+
 	registerRoute(route){
 		Router.addRoute(route);
 	}
+
 	addToGlobalContext(name, obj){
 		var globalContext = Context.getGlobal();
 		if(name in globalContext)
@@ -44,51 +60,63 @@ export default class AppController{
 		else
 			globalContext[name] = obj;
 	}
-	processConf(conf){
-		if(!conf) return;
-		var hold_conf = {};
+
+	getClassFromApplicationContext(classPath, environments){
+		let globalObject = getClassFromName(classPath, window);
+
+		if(globalObject) return globalObject;
+
+		for(let environment of environments){
+			let environmentObject = environment.getExposed(classPath);
+			if(environmentObject) return environmentObject;
+		}
+		
+		throw new FrameworkException(
+			`${classPath} isn't exposed on global or module context`
+		);
+	}
+
+	processConf(appConfiguration){
+		if(!appConfiguration) return;
+		var coreProperties = {};
 		try{
-			var temp_configuration = conf.getElementsByTagName('configuration')[0];
-			hold_conf.container = (temp_configuration.getElementsByTagName('container')[0]).textContent;
-			if((temp_configuration.getElementsByTagName('base_url')).length>0)
-				hold_conf.base_url = (temp_configuration.getElementsByTagName('base_url')[0]).textContent;
+			var configuration = new ExtendedDomElement(
+					appConfiguration.getElementsByTagName('configuration')[0]
+				);
+
+			coreProperties.container = (
+					configuration.getFirstElementByTagName('container')
+				).textContent;
+
+			if(configuration.existsElementByTagName('base_url'))
+				coreProperties.base_url = configuration.getFirstElementByTagName('base_url')
+											.textContent;
 			else{
-				var path = document.location.pathname.split('/');
-				path.pop();
-				hold_conf.base_url = document.location.protocol + '//' + document.location.host + path.join('/');
+				var currentPathSplitted = document.location.pathname.split('/');
+				currentPathSplitted.pop();
+				coreProperties.base_url = `${document.location.protocol}//${document.location.host +
+					currentPathSplitted.join('/')}`;
 			}
-			var pageBuilder_conf = (temp_configuration.getElementsByTagName('pageBuilder')[0]);
-			var database_conf = (temp_configuration.getElementsByTagName('database')[0]);
-			if(database_conf){
-				var custom_confs_db = {};
-				if(database_conf.getAttribute('revs-limit'))
-					custom_confs_db.revs_limit = parseInt(database_conf.getAttribute('revs-limit'));
-				if(database_conf.getAttribute('compaction'))
-					custom_confs_db.auto_compaction = database_conf.getAttribute('compaction') == 'true';
-				Database.setConfigs(custom_confs_db);
+
+			var pageBuilderConfiguration = configuration.getFirstElementByTagName('pageBuilder');
+
+			var databaseConfiguration = configuration.getFirstElementByTagName('database');
+			if(databaseConfiguration){
+				var databaseConfigurationMap = {};
+				if(databaseConfiguration.getAttribute('revs-limit'))
+					databaseConfigurationMap.revs_limit = parseInt(
+							databaseConfiguration.getAttribute('revs-limit')
+						);
+
+				if(databaseConfiguration.getAttribute('compaction'))
+					databaseConfigurationMap.auto_compaction = 
+						databaseConfiguration.getAttribute('compaction') == 'true';
+
+				Database.setConfigs(databaseConfigurationMap);
 			}
-			var cache_whitelist = [];
-			var cache_blacklist = [];
-			var cache_maxcached = 1000;
-			var cache_default = true;
-			var cacher_conf = (temp_configuration.getElementsByTagName('cacher')[0]);
-			if(cacher_conf){
-				if(cacher_conf.getAttribute('max-cached'))
-					cache_maxcached = parseInt(cacher_conf.getAttribute('max-cached'));
-				if(cacher_conf.getElementsByTagName('block'))
-					for( var b of cacher_conf.getElementsByTagName('block')){
-						cache_blacklist.push(b.getAttribute('url'));
-					}
-				if(cacher_conf.getElementsByTagName('persist'))
-					for( var p of cacher_conf.getElementsByTagName('persist')){
-						cache_whitelist.push(p.getAttribute('url'));
-					}
-				if(cacher_conf.getAttribute('default') && cacher_conf.getAttribute('default') == 'nocache')
-					cache_default = false;
-			}
-			var cacher_promise = Cacher.init(cache_default, cache_maxcached, cache_whitelist, cache_blacklist);
-			var page_container = temp_configuration.getElementsByTagName('pages')[0];
-			var pages_index = page_container.getElementsByTagName('index')[0];
+
+			var page_container = configuration.getFirstElementByTagName('pages');
+			var pages_index = page_container.getFirstElementByTagName('index');
 			var pages_path = page_container.getAttribute('path');
 			var pages_transition = page_container.getAttribute('transition') || null;
 			for( var p of page_container.getElementsByTagName('page')){
@@ -99,8 +127,9 @@ export default class AppController{
 				if(p.getAttribute('rolesAllowed'))
 					rolesAllowed = p.getAttribute('rolesAllowed').split(',');
 				var hold_vconf = {};
-				if(p.getElementsByTagName('configuration') && p.getElementsByTagName('configuration').length > 0)
-					for(var c of (p.getElementsByTagName('configuration')[0]).childNodes){
+				if(p.getElementsByTagName('configuration') &&
+					p.existsElementByTagName('configuration'))
+					for(var c of p.getFirstElementByTagName('configuration').childNodes){
 						if(c instanceof Element)
 							hold_vconf[c.tagName] = c.textContent;
 					}
@@ -112,337 +141,156 @@ export default class AppController{
 					(p.hasAttribute('ghostPage')) ? (p.getAttribute('ghostPage')=='true') : undefined, rolesAllowed);
 				PageFactory.addPage(newPage);
 			}
-			AppController.configuration = new GenericConfiguration(hold_conf);
-			var route_container = temp_configuration.getElementsByTagName('routes')[0];
+			AppController.configuration = new GenericConfiguration(coreProperties);
+			var route_container = configuration.getFirstElementByTagName('routes');
 			if(route_container){
 				for( var r of route_container.getElementsByTagName('route')){
 					this.registerRoute(new Route(r.getAttribute('entry'), r.getAttribute('destination')));
 				}
 			}
-			var module_container = temp_configuration.getElementsByTagName('modules')[0];
-			var current_promise = null;
-			var hiddenIfr = null;
-			let hiddenIfrPromise = Promise.resolve();
+
+			var module_container = configuration.getFirstElementByTagName('modules');
+			var modulesPath = module_container.getAttribute('path');
+				if(!modulesPath.startsWith(coreProperties.base_url))
+					modulesPath = absoluteURL(coreProperties.base_url, modulesPath, false);
+			var currentPromise = Promise.resolve();
+			let environments = [];
+			let modulesConfigurations = {};
+
 			if(module_container){
-				var modules_path = module_container.getAttribute('path');
-				if(!modules_path.startsWith(hold_conf.base_url))
-					modules_path = absoluteURL(hold_conf.base_url, modules_path, false);
-				var moduleConfs = {};
-				hiddenIfr = document.createElement('iframe');
-				hiddenIfr.style.display = 'none';
-				hiddenIfrPromise = new Promise(function(ifrResolved, ifrCancelled){
-					let flagContainer = {
-						alreadyExec: false
-					};
-					let operateOnIframe = function(flagContainer){
-						if(flagContainer.alreadyExec)
-							return;
-						else
-							flagContainer.alreadyExec = true;
-						
-						for(let v in window){
-							if(!(v in hiddenIfr.contentWindow))
-								try{
-									hiddenIfr.contentWindow[v] = window[v];
-								}catch(e){
-									if(!(e instanceof TypeError))
-										throw e;
-								}
-						}
-						hiddenIfr.contentWindow.Promise = window.Promise;
-						hiddenIfr.contentWindow.Array = window.Array;
-						hiddenIfr.contentWindow.Element = window.Element;
-						hiddenIfr.contentWindow._document = new Proxy(document, {
-							container: document.getElementById(hold_conf.container),
-							whiteList: [
-								'querySelector',
-								'getElementById',
-								'dispatchEvent',
-								'createElement'
-							],
-							get: function(target, name) {
-								var ret = ((typeof target[name] != 'function') || this.whiteList.indexOf(name)!=-1) ?
-									target[name] :
-									undefined;
-								if(typeof ret == 'function' && name != 'createElement'){
-									ret = function(next){
-										var args = [];
-										for(var i=1; i<arguments.length; i++)
-											args[i-1] = arguments[i];
-										var res = next.apply(document, args);
-										if(res instanceof Node){
-											var hold = res;
-											while (hold = hold.parentNode)
-												if (hold == this)
-													return res;
-											return this;
-										}
-									}.bind(this.container,ret);
-									
-								}
-								return (typeof ret == 'function') ? ret.bind(target) : ret;
-							},
-							set: function(obj, prop, value) {
-								return false;
-							}
-						});
-						for( var m of module_container.getElementsByTagName('module')){
-							if(m.getAttribute('enabled') == 'true'){
-								var hold_mconf = {};
-								var modulePerm = m.getAttribute('permissions') ? m.getAttribute('permissions').split(',') : [];
-								var xml2obj_func = function(ele){
-									var hold_return = {};
-									for(var c of ele.childNodes){
-										if(c instanceof Element)
-											if (c.hasChildNodes())
-												if(c.childNodes.length == 1 && c.childNodes[0].nodeType == Node.TEXT_NODE)
-													hold_return[c.tagName] = c.textContent;
-												else
-													hold_return[c.tagName] = xml2obj_func(c);
-											else
-												hold_return[c.tagName] = c.textContent;
+
+				for( let module of module_container.getElementsByTagName('module')){
+					if(module.getAttribute('enabled') == 'true'){
+
+						let newEnvironment = new Environment(
+							document,
+							document.getElementById(coreProperties.container),
+							coreProperties.base_url+'/'+pages_path,
+							module.getAttribute('permissions') ?
+								module.getAttribute('permissions').split(',') :
+								[]
+						);
+
+						currentPromise = currentPromise.then(async function(){
+							await newEnvironment.addFile(module.getAttribute('path'), modulesPath)
+								.then(function(){
+									while(this.moduleOnLoad.length>0){
+										var extractedModule = this.moduleOnLoad.shift();
+
+										let moduleConfigurationMap = convertDomToMap(
+											module.getElementsByTagName('configuration')[0]
+										);
+										var moduleConfiguration = new ModuleConfiguration(
+												moduleConfigurationMap
+											);
+										modulesConfigurations[extractedModule.name] = 
+											moduleConfiguration;
+										
+										let modulePermissions = module.getAttribute('permissions') ?
+											module.getAttribute('permissions').split(',') :
+											[];
+
+										ModulePool.addModule(extractedModule, modulePermissions);
 									}
-									return hold_return;
-								};
-								hold_mconf = xml2obj_func(m.getElementsByTagName('configuration')[0]);
-								var confModule = new ModuleConfiguration(hold_mconf);
-								current_promise = new Promise(
-									function(m, confModule, modulePerm, current_promise, resolve, reject){
-										var mod_load_func = function(m, confModule, modulePerm, resolve){
-											var script = document.createElement("script");
-											script.src = modules_path + m.getAttribute('path');
-											script.type = 'module';
-											script.onload = function(modules, configuration, permissions, callback){
-												while(modules.length>0){
-													var sm = modules.shift();
-													moduleConfs[sm.name] = configuration;
-													ModulePool.addModule(sm, permissions);
-												}
-												callback();
-											}.bind(script, this.moduleOnLoad, confModule, modulePerm, resolve);
-											if(modules_path.startsWith('file:')){
-												var prefetchxhr = new XMLHttpRequest();
-												prefetchxhr.onload = function(m, script, hiddenIfr, e){
-													let blob = prefetchxhr.response;
-													let newblob = new Blob([blob], {type: 'text/javascript'});
-													script.src = URL.createObjectURL(newblob);
-													hiddenIfr.contentDocument.head.appendChild(script);
-												}.bind(this, m, script, hiddenIfr);
-												prefetchxhr.open('get', modules_path + m.getAttribute('path'));
-												prefetchxhr.responseType = 'blob';
-												prefetchxhr.send();
-											}else
-												hiddenIfr.contentDocument.head.appendChild(script);
-										}.bind(this, m, confModule, modulePerm, resolve);
-										if(current_promise!=null)
-											current_promise.then(mod_load_func);
-										else
-											mod_load_func();
-									}.bind(this, m, confModule, modulePerm, current_promise)
-								).catch(function(e) {
-									log(e);
-								});
-							}
-						}
-						var newBaseIfr = hiddenIfr.contentDocument.createElement("base");
-						newBaseIfr.setAttribute("href", hold_conf.base_url+'/'+pages_path);
-						hiddenIfr.contentDocument.getElementsByTagName("head")[0].appendChild(newBaseIfr);
-						ifrResolved();
-					}.bind(this, flagContainer);
-					if(hiddenIfr.contentDocument && hiddenIfr.contentDocument.readyState == 'complete')
-						operateOnIframe();
-					else{
-						window.addEventListener('message', e => {
-							if (e['data'] === 'slave iframe loaded') {
-								operateOnIframe();
-							}
-						}, false);
-						
-						let poolingTryer = function(itself, iframe){
-							if(iframe.contentDocument && iframe.contentDocument.readyState == 'complete')
-								operateOnIframe();
-							else
-								setTimeout(itself, 200, itself, iframe);
-						};
-						
-						setTimeout(poolingTryer, 500, poolingTryer, hiddenIfr);
+								}.bind(this));
+						}.bind(this));
+
+						environments.push(newEnvironment);
 					}
-					const iframeContentBlob = new Blob([`
-						<html>
-							<body onload="__fireloadedmessage()">
-								<script>
-									function __fireloadedmessage(){
-										setTimeout(() => {
-											window.parent.postMessage('slave iframe loaded', '*');
-										}, 0);
-									}
-								</script>
-							</body>
-						</html>
-					`], {type: 'text/html'});
-					hiddenIfr.src = window.URL.createObjectURL(iframeContentBlob);
-					document.body.appendChild(hiddenIfr);
-				}.bind(this));
+				}
 			}
-			var newBase = document.createElement("base");
+
+			let newBase = document.createElement("base");
 			newBase.setAttribute("href", pages_path);
 			document.getElementsByTagName("head")[0].appendChild(newBase);
-			hiddenIfrPromise.then(function(){
-				Promise.all([cacher_promise, current_promise]).then(function(){
-					var globalContext = Context.getGlobal();
-					globalContext.BobbleHead = new Proxy(BobbleHead, {
-						whiteList: [
-							'User',
-							'Role',
-							'Session',
-							'Response',
-							'Request',
-							'ConnectorRequest',
-							'Model',
-							'ModelInstance',
-							'Route',
-							'Page',
-							'PageContext',
-							'AuthenticationMethod',
-							'AuthenticationMethods',
-							'PageFactory',
-							'VirtualPage',
-							'Exceptions',
-							'Errors',
-							'Events',
-							'Util'
-						],
-						get: function(target, name) {
-							return (name in target && this.whiteList.indexOf(name)!=-1) ?
-								target[name] :
-								null;
-						}
-					});
-					if(pageBuilder_conf){
-						pageBuilder_conf = pageBuilder_conf.textContent;
-						try{
-							var pageBuildClass = getClassFromName(pageBuilder_conf) ||
-								getClassFromName(pageBuilder_conf, hiddenIfr.contentWindow);
-							if(!pageBuildClass)
-								throw new FrameworkException(pageBuilder_conf + ' isn\'t a valid PageBuilder');
-							globalContext.pageBuilder = pageBuilder_conf ?
-								new (pageBuildClass)() :
-								new PageBuilder();
-						}catch(e){
-							log(e);
-							globalContext.pageBuilder = new PageBuilder();
-						}
+			currentPromise.then(function(){
+				let globalContext = Context.getGlobal();
+				globalContext.BobbleHead = new SafeBobbleHead();
+
+				if(pageBuilderConfiguration){
+					pageBuilderConfiguration = pageBuilderConfiguration.textContent;
+					if(pageBuilderConfiguration){
+						var pageBuildClass = this.getClassFromApplicationContext(
+								pageBuilderConfiguration,
+								environments
+							);
+
+						globalContext.pageBuilder = new (pageBuildClass)();
 					}else
 						globalContext.pageBuilder = new PageBuilder();
-					globalContext.pageBuilder.container = hold_conf.container;
-					globalContext.pageBuilder.transition = pages_transition;
-					var defaultConnector_conf = (temp_configuration.getElementsByTagName('defaultConnector')[0]);
+				}else
+					globalContext.pageBuilder = new PageBuilder();
+				globalContext.pageBuilder.container = coreProperties.container;
+				globalContext.pageBuilder.transition = pages_transition;
+
+				var defaultConnector_conf = (
+						configuration.getFirstElementByTagName('defaultConnector')
+					);
+				if(defaultConnector_conf){
+					defaultConnector_conf = defaultConnector_conf.textContent;
 					if(defaultConnector_conf){
-						defaultConnector_conf = defaultConnector_conf.textContent;
-						try{
-							var defConnClass = getClassFromName(defaultConnector_conf) ||
-								getClassFromName(defaultConnector_conf, hiddenIfr.contentWindow);
-							if(!defConnClass)
-								throw new FrameworkException(defaultConnector_conf + ' isn\'t a valid GenericConnector');
-							globalContext.defaultConnector = defaultConnector_conf ?
-								new (defConnClass)() :
-								new GenericConnector();
-						}catch(e){
-							log(e);
-							globalContext.defaultConnector = new GenericConnector();
-						}
+						var defConnClass = this.getClassFromApplicationContext(
+								defaultConnector_conf,
+								environments
+							);
+						
+						globalContext.defaultConnector = new (defConnClass)();
 					}else
 						globalContext.defaultConnector = new GenericConnector();
-					var accessController_conf = (temp_configuration.getElementsByTagName('accessController')[0]);
-					var accesscontroller_promise = null;
-					if(accessController_conf){
-						var accessController_conf_name = accessController_conf.textContent;
-						try{
-							if(accessController_conf_name){
-								var accessControllerClass = getClassFromName(accessController_conf_name) ||
-									getClassFromName(accessController_conf_name, hiddenIfr.contentWindow);
-								if(!accessControllerClass)
-									throw new FrameworkException(accessController_conf_name + ' isn\'t a valid AccessController');
-							}
-							globalContext.accessController = accessController_conf_name ?
-								new (accessControllerClass)():
-								new AccessController();
-							accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method'));
-						}catch(e){
-							log(e);
-							globalContext.accessController = new AccessController();
-							accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method') || 'none')
-						}
-					}else{
+
+				}else
+					globalContext.defaultConnector = new GenericConnector();
+
+				var accessController_conf =
+					configuration.getFirstElementByTagName('accessController');
+
+				var accesscontroller_promise = null;
+				if(accessController_conf){
+					var accessController_conf_name = accessController_conf.textContent;
+
+					if(accessController_conf_name){
+						var accessControllerClass = this.getClassFromApplicationContext(
+								accessController_conf_name,
+								environments
+							);
+
+						globalContext.accessController = new (accessControllerClass)();
+						
+					}else
 						globalContext.accessController = new AccessController();
-						accesscontroller_promise = globalContext.accessController.init('none');
+
+					accesscontroller_promise = globalContext.accessController.init(accessController_conf.getAttribute('method') || 'none');
+
+				}else{
+					globalContext.accessController = new AccessController();
+					accesscontroller_promise = globalContext.accessController.init('none');
+				}
+				globalContext.localDatabase = Database.getInstance();
+				accesscontroller_promise.then(function(){
+					var otherPromises = [];
+					for(var sm of ModulePool.getModules()){
+						var mContext = globalContext.clone();
+						mContext.BobbleHead = new SafeBobbleHead(ModulePool.getModulePermissions(sm.name));
+						var sandbox = new Sandbox(document.getElementById(coreProperties.container), mContext);
+						var initReturn = sandbox.execMethod('init', [modulesConfigurations[sm.name]], sm);
+						if(initReturn instanceof Promise)
+							otherPromises.push(initReturn);
 					}
-					globalContext.localDatabase = Database.getInstance();
-					accesscontroller_promise.then(function(){
-						var otherPromises = [];
-						for(var sm of ModulePool.getModules()){
-							var mContext = globalContext.clone();
-							var mPerms = [];
-							for(var mp of ModulePool.getModulePermissions(sm.name)){
-								if(mp == 'pages'){
-									mPerms = mPerms.concat(['PageFactory', 'PageConfiguration']);
-								}else if(mp == 'users'){
-									mPerms = mPerms.concat(['UserPool', 'RolePool']);
-								}else if(mp == 'models'){
-									mPerms = mPerms.concat(['ModelPool']);
-								}
+					if(pages_index){
+						coreProperties.index = parseInt(pages_index.getAttribute('vid'));
+						var index_data = null;
+						if(pages_index.getFirstElementByTagName('data')){
+							index_data = {};
+							for(var c of pages_index.getFirstElementByTagName('data').childNodes){
+								if(c instanceof Element)
+									index_data[c.tagName] = c.textContent;
 							}
-							mContext.BobbleHead = new Proxy(BobbleHead, {
-								whiteList: [
-									'User',
-									'Role',
-									'Session',
-									'Response',
-									'Request',
-									'ConnectorRequest',
-									'Model',
-									'ModelInstance',
-									'Route',
-									'Page',
-									'PageContext',
-									'AuthenticationMethod',
-									'AuthenticationMethods',
-									'VirtualPage',
-									'Exceptions',
-									'Errors',
-									'Events',
-									'Util',
-									'XMLParser'
-								].concat(mPerms),
-								moduleName: sm.name,
-								get: function(target, name) {
-									if(name in target && this.whiteList.indexOf(name)!=-1)
-										return target[name];
-									else
-										throw new FrameworkException('Unpermitted access to '+name+' from '+this.moduleName);
-								}
-							});
-							var sandbox = new Sandbox(document.getElementById(hold_conf.container), mContext);
-							var initReturn = sandbox.execMethod('init', [moduleConfs[sm.name]], sm);
-							if(initReturn instanceof Promise)
-								otherPromises.push(initReturn);
 						}
-						if(pages_index){
-							hold_conf.index = parseInt(pages_index.getAttribute('vid'));
-							var index_data = null;
-							if(pages_index.getElementsByTagName('data')[0]){
-								index_data = {};
-								for(var c of (pages_index.getElementsByTagName('data')[0]).childNodes){
-									if(c instanceof Element)
-										index_data[c.tagName] = c.textContent;
-								}
-							}
-							Promise.all(otherPromises).then(function(index,index_data){
-								this.pageBuilder.buildPage(index,index_data);
-							}.bind(globalContext,hold_conf.index,index_data));
-						}
-						this.initialization = false;
-					}.bind(this));
+						Promise.all(otherPromises).then(function(index,index_data){
+							this.pageBuilder.buildPage(index,index_data);
+						}.bind(globalContext,coreProperties.index,index_data));
+					}
+					this.initialization = false;
 				}.bind(this));
 			}.bind(this));
 		}catch(e){
@@ -457,3 +305,4 @@ export default class AppController{
 	}
 };
 AppController.configuration = null;
+AppController.instance = null;
