@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <configuration>
 	<version>0.0.1</version>
-	<base_url>http://localhost/BobbleHeadCMS/dist</base_url>
+	<base_url>http://localhost/BobbleHeadCMS/example</base_url>
 	<container>app-content</container>
 	<pages path="./pages/">
 		<index vid="1">
