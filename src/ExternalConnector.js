@@ -1,5 +1,4 @@
 import Response from './Response.js';
-import Cacher from './Cacher.js';
 
 export default class ExternalConnector{
 	static getInstance(){
@@ -7,18 +6,23 @@ export default class ExternalConnector{
 			ExternalConnector.instance = new ExternalConnector();
 		return ExternalConnector.instance;
 	}
+
+	dataObjectToString(data){
+		let parametersString = '';
+		for (let [key, value] of data.entries()) {
+			if(key && (value || value===0))
+				parametersString += `${key}=${value.toString().trim()}&`;
+		}
+		parametersString = parametersString.slice(0, -1);
+		return parametersString;
+	}
+
 	doRequest(request){
 		return new Promise(function(resolve, reject) {
 			let xhttp = new XMLHttpRequest();
 			let url = encodeURI(request.uri);
 			if(request.method == 'get' && request.getData() != null){
-				let _param = '';
-				for (let pair of request.getData().entries()) {
-					if(pair[0]&&(pair[1] || pair[1]===0))
-						_param += pair[0]+'='+pair[1].toString().trim()+'&';
-				}
-				_param = _param.slice(0, -1);
-				url += '?'+_param;
+				url += '?' + this.dataObjectToString(request.getData());
 			}
 			xhttp.open(request.getMethod(), url, true);
 			for(let header of request.getHeaders())
@@ -30,34 +34,26 @@ export default class ExternalConnector{
 			xhttp.onreadystatechange = async function(){
 				let res = new Response();
 				if(xhttp.readyState === XMLHttpRequest.DONE){
-					let response = null;
+					let response = xhttp.response;
 					res.code = 0;
 					res.status = xhttp.status;
 					if(xhttp.status !== 200) {
-						let statusType = Math.floor(xhttp.status/100);
-						if(statusType!=4){
-							response = Cacher.getCached(request);
-							if(response instanceof Promise){
-								let promise_hold = response;
-								response = await promise_hold;
-							}									
-						}
-						if(!response){
-							res.code = -10;
-							res.content = {'error':'Connection Error'};
-						}
-					}
-					if(!response)
-						response = xhttp.response;
-					if(response){
+						res.code = -10;
+						res.content = {
+							'error':'Request error',
+							'httpStatus': xhttp.status,
+							'serverResponse': response
+						};
+					}else if(response){
 						res.content = response;
-					}else if(xhttp.status === 200){
+					}else{
 						res.code = -11;
-						res.content = {'error':'No data response'};
+						res.content = {
+							'error':'No data response',
+							'httpStatus': xhttp.status
+						};
 					}
-					if(xhttp.status === 200){
-						Cacher.cache(request,response);
-					}
+
 					if(res.code==0)
 						resolve(res);
 					else
@@ -65,7 +61,7 @@ export default class ExternalConnector{
 				}
 			};
 			xhttp.send(request.getData());
-		});
+		}.bind(this));
 	}
 };
 ExternalConnector.instance = null;

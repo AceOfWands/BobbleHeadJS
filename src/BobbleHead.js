@@ -20,7 +20,6 @@ import AuthenticationMethods from './AuthenticationMethods.js';
 import InternalConnector from './InternalConnector.js';
 import ExternalConnector from './ExternalConnector.js';
 import GenericConnector from './GenericConnector.js';
-import Cacher from './Cacher.js';
 import PageBuilder from './PageBuilder.js';
 import PageFactory from './PageFactory.js';
 import Module from './Module.js';
@@ -33,12 +32,10 @@ import Context from './Context.js';
 import FrameworkException from './Exceptions/FrameworkException.js';
 import FrameworkError from './Errors/FrameworkError.js';
 import FrameworkEvent from './Events/FrameworkEvent.js';
-import CacherLoadedEvent from './Events/CacherLoadedEvent.js';
 import AccessControllerLoadedEvent from './Events/AccessControllerLoadedEvent.js';
 import PageReadyEvent from './Events/PageReadyEvent.js';
 import * as Util from './Util.js';
 import ConnectorRequest from './ConnectorRequest.js';
-import CacherRequest from './CacherRequest.js';
 import ModuleConfiguration from './ModuleConfiguration.js';
 import PageConfiguration from './PageConfiguration.js';
 import PageNotFoundException from './Exceptions/PageNotFoundException.js';
@@ -85,10 +82,6 @@ export default (function(){
 		},
 		ConnectorRequest: {
 			value: ConnectorRequest,
-			writable: false
-		},
-		CacherRequest: {
-			value: CacherRequest,
 			writable: false
 		},
 		GenericConfiguration: {
@@ -153,10 +146,6 @@ export default (function(){
 		},
 		GenericConnector: {
 			value: GenericConnector,
-			writable: false
-		},
-		Cacher: {
-			value: Cacher,
 			writable: false
 		},
 		PageBuilder: {
@@ -235,8 +224,6 @@ export default (function(){
 			value: {
 				get FrameworkEvent(){return FrameworkEvent},
 				set FrameworkEvent(x){},
-				get CacherLoadedEvent(){return CacherLoadedEvent},
-				set CacherLoadedEvent(x){},
 				get AccessControllerLoadedEvent(){return AccessControllerLoadedEvent},
 				set AccessControllerLoadedEvent(x){},
 				get PageReadyEvent(){return PageReadyEvent},
@@ -253,7 +240,7 @@ export default (function(){
 				if(BobbleHead.app)
 					throw new FrameworkException('BobbleHead is already running');
 				Object.defineProperty(BobbleHead, 'app', {
-					value: new BobbleHead.AppController(configuration),
+					value: AppController.getInstance(configuration),
 					writable: false
 				});
 				return BobbleHead.app;

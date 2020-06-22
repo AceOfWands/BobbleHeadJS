@@ -1,6 +1,4 @@
 import Request from './Request.js';
-import CacherRequest from './CacherRequest.js';
-import md5 from 'md5-jkmyers';
 
 export default class ConnectorRequest extends Request{
 	constructor(method,uri,data,headers = {},options = null){
@@ -38,38 +36,18 @@ export default class ConnectorRequest extends Request{
 		if(this.uri != x.getUri()) return false;
 		if(this.getResponseType() != x.getResponseType()) return false;
 		var xData = x.getData();
-		var promises = [];
 		if(xData != null && this.data != null){
 			var size = 0;
-			if(x instanceof ConnectorRequest){
-				var xsize = 0;
-				for(var k of xData.keys())
-					xsize++;
-				if(xsize != size) return false;
-				for(var i of this.data){
-					if(xData.get(i[0]) != i[1]) return false;
-					size++;
-				}
-			}else if(x instanceof CacherRequest){
-				for(var i of this.data){
-					if(i[1] instanceof Blob){
-						promises.push(new Promise(function(resolve, reject){
-							var reader = new FileReader();
-							reader.onload = function(){
-								resolve(xData[i[0]] == md5(reader.result));
-							}.bind(this);
-							reader.readAsText(i[1]);
-						}));
-					}else if(xData[i[0]] != i[1]) return false;
-					size++;
-				}
-				if(Object.keys(xData).length != size) return false;
+			var xsize = 0;
+			for(var k of xData.keys())
+				xsize++;
+			if(xsize != size) return false;
+			for(var i of this.data){
+				if(xData.get(i[0]) != i[1]) return false;
+				size++;
 			}
 		}
 		else if(xData !== this.data) return false;
-		return (!promises || promises.length == 0) ? true : Promise.all(promises);
-	}
-	toCacherRequest(){
-		return new CacherRequest(this.method,this.uri,this.data,this.headers,this.options);
+		return true;
 	}
 }
