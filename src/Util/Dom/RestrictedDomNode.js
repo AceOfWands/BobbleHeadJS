@@ -5,8 +5,12 @@ export default class RestrictedDomNode{
         this.topElement = topElement;
         this.domElement = domElement;
 
-        return new Proxy(document, {
-            get: this.wrapGetter.bind(this)
+        return new Proxy(this.domElement, {
+            get: this.wrapGetter.bind(this),
+            set: (target, property, value) => {
+                target[property] = value;
+                return true;
+            }
         });
     }
 
@@ -14,14 +18,14 @@ export default class RestrictedDomNode{
         if(name in this)
             return this[name];
 
-        let realValue = this.domElement[name];
+        let realValue = target[name];
         let returnValue = undefined;
 
         if(typeof realValue == 'function'){
             let realFunction = realValue;
 
             returnValue = function(){
-                let realFunctionOutput = realFunction.apply(this.domElement, arguments);
+                let realFunctionOutput = realFunction.apply(target, arguments);
 
                 return this.wrapResult(realFunctionOutput);
             }.bind(this);
