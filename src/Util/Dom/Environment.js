@@ -83,6 +83,7 @@ export default class Environment{
         this.hiddenIframe.contentWindow.Promise = window.Promise;
         this.hiddenIframe.contentWindow.Array = window.Array;
         this.hiddenIframe.contentWindow.Element = window.Element;
+        this.hiddenIframe.contentWindow.FormData = window.FormData;
         if(this.permissions.indexOf('pages') > -1)
             this.hiddenIframe.contentWindow._document = new RestrictedDomElement(this.container);
         this.hiddenIframe.contentWindow.BobbleHead = new SafeBobbleHead(this.permissions);
