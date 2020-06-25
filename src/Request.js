@@ -2,10 +2,7 @@ export default class Request{
 	constructor(method,uri,data,headers = {}, options = null){
 		this.method = method;
 		this.uri = uri;
-		if(data != null)
-			this.setData(data)
-		else
-			this.data = null;
+		this.setData(data);
 		this.headers = headers;
 		for(var hname in this.headers)
 			if(this.headers[hname] && (typeof this.headers[hname] != 'string'))
