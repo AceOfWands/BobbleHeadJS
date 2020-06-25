@@ -9,11 +9,17 @@ export default class ExternalConnector{
 
 	dataObjectToString(data){
 		let parametersString = '';
-		for (let [key, value] of data.entries()) {
-			if(key && (value || value===0))
+
+		if(!(data instanceof FormData)){
+			data = Object.entries(data);
+		}
+
+		for (let [key, value] of data) {
+			if(key)
 				parametersString += `${key}=${value.toString().trim()}&`;
 		}
 		parametersString = parametersString.slice(0, -1);
+
 		return parametersString;
 	}
 
