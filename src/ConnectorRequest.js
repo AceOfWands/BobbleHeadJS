@@ -14,7 +14,7 @@ export default class ConnectorRequest extends Request{
 		return r;
 	}
 	setData(a,b = null){
-		if(a == null)
+		if(a == undefined || a == null)
 			this.data = null;
 		else
 			if(a instanceof FormData){
