@@ -34,6 +34,7 @@ import FrameworkError from './Errors/FrameworkError.js';
 import FrameworkEvent from './Events/FrameworkEvent.js';
 import AccessControllerLoadedEvent from './Events/AccessControllerLoadedEvent.js';
 import PageReadyEvent from './Events/PageReadyEvent.js';
+import PageShownEvent from './Events/PageShownEvent.js';
 import * as Util from './Util.js';
 import ConnectorRequest from './ConnectorRequest.js';
 import ModuleConfiguration from './ModuleConfiguration.js';
@@ -228,6 +229,8 @@ export default (function(){
 				set AccessControllerLoadedEvent(x){},
 				get PageReadyEvent(){return PageReadyEvent},
 				set PageReadyEvent(x){},
+				get PageShownEvent(){return PageShownEvent},
+				set PageShownEvent(x){},
 			},
 			writable: false
 		},
