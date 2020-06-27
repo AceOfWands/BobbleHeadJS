@@ -26,8 +26,9 @@ export default class ConnectorRequest extends Request{
 			}else if(typeof a === "string"){
 				this.data = a;
 			}else{
-				for(var p in a)
-					this.setData(p, a[p]);
+				debugger;
+				for(let [key, value] of Object.entries(a))
+					this.setData(key, value || '');
 			}
 	}
 	equal(x){
