@@ -8,8 +8,9 @@ module.exports = {
 		filename: '[name].js',
 		path: path.resolve(__dirname, 'dist'),
 		library: 'BobbleHead',
-		libraryTarget: 'var',
-		libraryExport: 'default'
+		libraryTarget: 'umd',
+		libraryExport: 'default',
+		globalObject: 'this'
 	},
 	module: {
 		rules: [
